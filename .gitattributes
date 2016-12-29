@@ -1,17 +1,39 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
+# Explicitly declare text files we want to always be normalized and converted
+# to native line endings on checkout.
+*.md            text
+*.gitattributes text
+
+# Declare files that will always have CRLF line endings on checkout.
+*.ps1    text
+*.psm1   diff=astextplain
+*.psm1   text
+*.psd1   diff=astextplain
+*.psd1   text
+*.psc1   text  eol=crlf
+*.ps1xml text  eol=crlf
+*.clixml text  eol=crlf
+*.xml    text
+*.txt    text  eol=crlf
+
+# Denote all files that are truly binary and should not be mergeable.
+*.dll binary
+*.exe binary
+
 # Custom for Visual Studio
-*.cs     diff=csharp
+*.cs   diff=csharp
 
 # Standard to msysgit
-*.doc	 diff=astextplain
-*.DOC	 diff=astextplain
+*.doc	diff=astextplain
+*.DOC	diff=astextplain
 *.docx diff=astextplain
 *.DOCX diff=astextplain
 *.dot  diff=astextplain
 *.DOT  diff=astextplain
 *.pdf  diff=astextplain
-*.PDF	 diff=astextplain
-*.rtf	 diff=astextplain
-*.RTF	 diff=astextplain
+*.PDF  diff=astextplain
+*.rtf  diff=astextplain
+*.RTF  diff=astextplain
+
