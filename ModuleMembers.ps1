@@ -4,28 +4,23 @@ function Get-ModuleMember
   [cmdletbinding(SupportsShouldProcess)]
 <#
       .SYNOPSIS
-      Finds all functions and aliases defined within a function. Intended to make it easier for defining / updating Export-ModuleMember paramters
+      Examines a specified PowerShell module and returns a custom object displaying all available scripts, functions, and alias the function could export.
+
       .DESCRIPTION
-      Uses Get-Module and Select-String to find the functions and aliases defined within the various scripts of a PowerShell Module.
-      Returns a custom objects enumerating these functions and aliases, showing a complete Export-ModuleMember statement to be optionally edited, and included at the end of a new or modified .psm1 file
+      Examines a specified PowerShell module manifest, along with all ScriptModule (.psm1) and Script (.ps1) files in the PowerShell module folder, enumerates all function and alias declarations contained within, and returns a custom object designed to make it very easy for updating or creating new PowerShell module manifest files (.psd1)
+
       .EXAMPLE
       PS .\> Get-ModuleMember -ModuleName EditModule
 
-      Modules\EditModule\EditModule.psm1:291:New-Alias -Name Open-AdminEditor -Value Open-AdminISE -ErrorAction Ignore
-      Filename: EditModule.psm1; Match: Open-AdminEditor
-      Modules\EditModule\ModuleMembers.ps1:42:    $Aliases   = @()
-      Filename: ModuleMembers.ps1; Match: es
-
-      ModuleName    : EditModule
-      ModulePath    : $env:USERPROFILE\Documents\WindowsPowerShell\Modules\EditModule
-      ModuleList    :
-      RootModule    : EditModule.psm1
-      Scripts       : ModuleMembers.ps1
-      NestedModules :
-      Functions     : {Edit-Module, Find-Function, Get-ModuleMember, Open-AdminISE}
-      Aliases       : {es, Open-AdminEditor}
-      FunctionList  : 'Edit-Module', 'Find-Function', 'Get-ModuleMember', 'Open-AdminISE'
-      AliasList     : 'es', 'Open-AdminEditor'
+      ModuleName        : EditModule
+      ModulePath        : C:\Users\bdady\Documents\WindowsPowerShell\Modules\EditModule
+      ModuleList        :
+      RootModule        : EditModule.psm1
+      ScriptsToProcess  : @('ModuleMembers.ps1', 'Repair-ModuleManifest.ps1')
+      NestedModules     : @('')
+      FunctionsToExport : @('Edit-Module', 'Find-Function', 'Format-String', 'Get-ModuleMember', 'Open-AdminISE',
+                          'Repair-ModuleManifest')
+      AliasesToExport   : @('Open-AdminEditor')
 
       .NOTES
       NAME        :  Get-ModuleMember
