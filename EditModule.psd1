@@ -6,6 +6,7 @@
 # Generated on: 4/12/2015
 #
 # Updated on: 12/12/2016 : Support editing a module at a path that contains spaces
+# Updated on: 7/3/2017   : Add Edit-Path and Open-PSEdit scripts (and their functions) to support using VS Code or another alternative editor. Renamed Fornmat-String function to Format-Path
 #
 
 @{
@@ -14,7 +15,7 @@
 RootModule = 'EditModule.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.1.12'
+ModuleVersion = '2.2.0'
 
 # ID used to uniquely identify this module
 GUID = '4c59e659-24f7-4370-88ac-1dbdcfdc2e63'
@@ -56,7 +57,7 @@ PowerShellVersion = '3.0'
 # RequiredAssemblies = @()
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
-ScriptsToProcess = @('ModuleMembers.ps1','Repair-ModuleManifest.ps1')
+ScriptsToProcess = @('Edit-Path.ps1', 'ModuleMembers.ps1', 'Open-PSEdit.ps1', 'Repair-ModuleManifest.ps1')
 
 # Type files (.ps1xml) to be loaded when importing this module
 # TypesToProcess = @()
@@ -68,7 +69,7 @@ ScriptsToProcess = @('ModuleMembers.ps1','Repair-ModuleManifest.ps1')
 # NestedModules = @()
 
 # Functions to export from this module
-FunctionsToExport = @('Edit-Module', 'Find-Function', 'Get-ModuleMember', 'Open-AdminISE', 'Repair-ModuleManifest')
+FunctionsToExport = @('Assert-PSEdit', 'Edit-Module', 'Format-Path', 'Find-Function', 'Get-ModuleMember', 'Get-PSEdit', 'Add-Path', 'Get-PathFromRegistry', 'Remove-Path', 'Set-Path', 'Test-LocalAdmin', 'Open-AdminISE', 'Open-PSEdit', 'Repair-ModuleManifest')
 
 # Cmdlets to export from this module
 # CmdletsToExport = @()
@@ -77,13 +78,13 @@ FunctionsToExport = @('Edit-Module', 'Find-Function', 'Get-ModuleMember', 'Open-
 # VariablesToExport = @()
 
 # Aliases to export from this module
-AliasesToExport = @('Open-AdminEditor')
+AliasesToExport = @('Open-AdminEditor', 'PSEdit')
 
 # List of all modules packaged with this module
 # ModuleList = @()
 
 # List of all files packaged with this module
-FileList = @('EditModule.psm1', 'ModuleMembers.ps1','Repair-ModuleManifest.ps1')
+FileList = @('Edit-Path.ps1', 'EditModule.psm1', 'ModuleMembers.ps1', 'Open-PSEdit.ps1', 'Repair-ModuleManifest.ps1')
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = @()

@@ -1,33 +1,36 @@
-﻿#requires -version 3
-function Get-ModuleMember
-{
-  [cmdletbinding(SupportsShouldProcess)]
-<#
-      .SYNOPSIS
-      Examines a specified PowerShell module and returns a custom object displaying all available scripts, functions, and alias the function could export.
+﻿#!/usr/local/bin/powershell
+#requires -version 3
+function Get-ModuleMember {
+  <#
+    .SYNOPSIS
+    Examines a specified PowerShell module and returns a custom object displaying all available scripts, functions, and alias the function could export.
 
-      .DESCRIPTION
-      Examines a specified PowerShell module manifest, along with all ScriptModule (.psm1) and Script (.ps1) files in the PowerShell module folder, enumerates all function and alias declarations contained within, and returns a custom object designed to make it very easy for updating or creating new PowerShell module manifest files (.psd1)
+    .DESCRIPTION
+    Examines a specified PowerShell module manifest, along with all ScriptModule (.psm1) and Script (.ps1) files in the PowerShell module folder, enumerates all function and alias declarations contained within, and returns a custom object designed to make it very easy for updating or creating new PowerShell module manifest files (.psd1)
 
-      .EXAMPLE
-      PS .\> Get-ModuleMember -ModuleName EditModule
+    .EXAMPLE
+    PS .\> Get-ModuleMember -ModuleName EditModule
 
-      ModuleName        : EditModule
-      ModulePath        : C:\Users\bdady\Documents\WindowsPowerShell\Modules\EditModule
-      ModuleList        :
-      RootModule        : EditModule.psm1
-      ScriptsToProcess  : @('ModuleMembers.ps1', 'Repair-ModuleManifest.ps1')
-      NestedModules     : @('')
-      FunctionsToExport : @('Edit-Module', 'Find-Function', 'Format-String', 'Get-ModuleMember', 'Open-AdminISE',
-                          'Repair-ModuleManifest')
-      AliasesToExport   : @('Open-AdminEditor')
+    ModuleName        : EditModule
+    ModulePath        : C:\Users\bdady\Documents\WindowsPowerShell\Modules\EditModule
+    ModuleList        :
+    RootModule        : EditModule.psm1
+    ScriptsToProcess  : @('ModuleMembers.ps1', 'Repair-ModuleManifest.ps1')
+    NestedModules     : @('')
+    FunctionsToExport : @('Edit-Module', 'Find-Function', 'Format-String', 'Get-ModuleMember', 'Open-AdminISE',
+                        'Repair-ModuleManifest')
+    AliasesToExport   : @('Open-AdminEditor')
 
-      .NOTES
-      NAME        :  Get-ModuleMember
-      VERSION     :  1.0.0
-      LAST UPDATED:  2/16/2016
-      AUTHOR      :  Bryan Dady
+    .EXAMPLE
+    PS .\> Get-ModuleMember -ModuleName EditModule -ShowFunctionFile | select -ExpandProperty FunctionFiles
+    
+    .NOTES
+    NAME        :  Get-ModuleMember
+    VERSION     :  1.0.0
+    LAST UPDATED:  2/16/2016
+    AUTHOR      :  Bryan Dady
   #>
+  [cmdletbinding(SupportsShouldProcess)]
   Param (
     [Parameter(
         Mandatory,
@@ -36,10 +39,14 @@ function Get-ModuleMember
         ValueFromPipelineByPropertyName = $true,
         HelpMessage = 'Specify a module (.psm1 file) to inspect'
     )]
-    [ValidateScript({$PSItem -in (Get-Module -ListAvailable).Name})]
+    [ValidateScript({$PSItem | ForEach-Object {$PSItem -in (Get-Module -ListAvailable).Name} })] # $PSItem -in (Get-Module -ListAvailable).Name
     [Alias('FilePath','Module','Path')]
-    [string]
-    $ModuleName
+    [System.Array]
+    $ModuleName,
+    [Parameter(Position = 1)]
+    [Alias('Resolve')]
+    [Switch]
+    $ShowFunctionFile
   )
 
   New-Variable -Name OutputObj -Description 'Object to be returned by this function' -Scope Private
@@ -47,12 +54,14 @@ function Get-ModuleMember
 
   Write-Debug -Message "`$thisModule = $($thisModule.Name), $($thisModule.Path)"
 
+  $FunctionFiles = @{}
   $Functions = @()
   $Aliases   = @()
 
   $thisModule.ModuleBase | Get-ChildItem -Recurse -Include *.ps1,*.psm1 | Select-String -pattern '^\s*function (\S+)' | Group-Object -Property Filename | Select-Object -ExpandProperty Group |
   ForEach-Object -Process {
     Write-Debug -Message "Filename: $($PSItem.Filename); Match: $($PSItem.Matches.Groups[1].Value)"
+    $FunctionFiles += @{$PSItem.Matches.Groups[1].Value = $(Join-Path -Path $thisModule.ModuleBase -ChildPath $PSItem.Filename)}
     $Functions += $PSItem.Matches.Groups[1].Value
   } # end foreach Match
 
@@ -63,7 +72,6 @@ function Get-ModuleMember
     $Aliases += $PSItem.Matches.Groups[1].Value
   } # end foreach Match
 
-     
   $scriptNames = @($thisModule.Scripts -replace $("$($thisModule.ModuleBase)\" -replace '\\','\\') , '')
 
   # Optimize New-Object invocation, per Don Jones' recommendation: https://technet.microsoft.com/en-us/magazine/hh750381.aspx
@@ -78,8 +86,13 @@ function Get-ModuleMember
     'AliasesToExport'   = "@('" + $(($Aliases | Sort-Object | Select-Object -Unique) -join "', '") + "')"
   }
 
+  if ($ShowFunctionFile)
+  {
+    $Private:properties += @{'FunctionFiles' = $FunctionFiles }
+  }
   $Private:RetObject = New-Object -TypeName PSObject -Property $properties
   return $RetObject
+
 
 } # end function Get-ModuleMember
 
