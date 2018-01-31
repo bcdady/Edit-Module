@@ -6,45 +6,45 @@ Param()
 Set-StrictMode -Version latest
 
 #Region MyScriptInfo
-  Write-Verbose -Message '[Edit-EnvPath] Populating $MyScriptInfo'
-  $script:MyCommandName = $MyInvocation.MyCommand.Name
-  $script:MyCommandPath = $MyInvocation.MyCommand.Path
-  $script:MyCommandType = $MyInvocation.MyCommand.CommandType
-  $script:MyCommandModule = $MyInvocation.MyCommand.Module
-  $script:MyModuleName = $MyInvocation.MyCommand.ModuleName
-  $script:MyCommandParameters = $MyInvocation.MyCommand.Parameters
-  $script:MyParameterSets = $MyInvocation.MyCommand.ParameterSets
-  $script:MyRemotingCapability = $MyInvocation.MyCommand.RemotingCapability
-  $script:MyVisibility = $MyInvocation.MyCommand.Visibility
+    Write-Verbose -Message '[Edit-EnvPath] Populating $MyScriptInfo'
+    $Private:MyCommandName        = $MyInvocation.MyCommand.Name
+    $Private:MyCommandPath        = $MyInvocation.MyCommand.Path
+    $Private:MyCommandType        = $MyInvocation.MyCommand.CommandType
+    $Private:MyCommandModule      = $MyInvocation.MyCommand.Module
+    $Private:MyModuleName         = $MyInvocation.MyCommand.ModuleName
+    $Private:MyCommandParameters  = $MyInvocation.MyCommand.Parameters
+    $Private:MyParameterSets      = $MyInvocation.MyCommand.ParameterSets
+    $Private:MyRemotingCapability = $MyInvocation.MyCommand.RemotingCapability
+    $Private:MyVisibility         = $MyInvocation.MyCommand.Visibility
 
-  if (($null -eq $script:MyCommandName) -or ($null -eq $script:MyCommandPath)) {
-    # We didn't get a successful command / script name or path from $MyInvocation, so check with CallStack
-    Write-Verbose -Message "Getting PSCallStack [`$CallStack = Get-PSCallStack]"
-    $CallStack = Get-PSCallStack | Select-Object -First 1
-    # $CallStack | Select Position, ScriptName, Command | format-list # FunctionName, ScriptLineNumber, Arguments, Location
-    $script:myScriptName = $CallStack.ScriptName
-    $script:myCommand = $CallStack.Command
-    Write-Verbose -Message "`$ScriptName: $script:myScriptName"
-    Write-Verbose -Message "`$Command: $script:myCommand"
-    Write-Verbose -Message 'Assigning previously null MyCommand variables with CallStack values'
-    $script:MyCommandPath = $script:myScriptName
-    $script:MyCommandName = $script:myCommand
-  }
+    if (($null -eq $Private:MyCommandName) -or ($null -eq $Private:MyCommandPath)) {
+        # We didn't get a successful command / script name or path from $MyInvocation, so check with CallStack
+        Write-Verbose -Message "Getting PSCallStack [`$CallStack = Get-PSCallStack]"
+    	$Private:CallStack = Get-PSCallStack | Select-Object -First 1
+        # $CallStack | Select Position, ScriptName, Command | format-list # FunctionName, ScriptLineNumber, Arguments, Location
+        $Private:MyScriptName     = $Private:CallStack.ScriptName
+        $Private:MyCommand        = $Private:CallStack.Command
+        Write-Verbose -Message ('$ScriptName: {0}' -f $Private:MyScriptName)
+        Write-Verbose -Message ('$Command: {0}' -f $Private:MyCommand)
+        Write-Verbose -Message 'Assigning previously null MyCommand variables with CallStack values'
+        $Private:MyCommandPath    = $Private:MyScriptName
+        $Private:MyCommandName    = $Private:MyCommand
+    }
 
-  #'Optimize New-Object invocation, based on Don Jones' recommendation: https://technet.microsoft.com/en-us/magazine/hh750381.aspx
-  $Private:properties = [ordered]@{
-    'CommandName'        = $script:MyCommandName
-    'CommandPath'        = $script:MyCommandPath
-    'CommandType'        = $script:MyCommandType
-    'CommandModule'      = $script:MyCommandModule
-    'ModuleName'         = $script:MyModuleName
-    'CommandParameters'  = $script:MyCommandParameters.Keys
-    'ParameterSets'      = $script:MyParameterSets
-    'RemotingCapability' = $script:MyRemotingCapability
-    'Visibility'         = $script:MyVisibility
-  }
-  $MyScriptInfo = New-Object -TypeName PSObject -Prop $properties
-  Write-Verbose -Message '[Edit-EnvPath] $MyScriptInfo populated'
+    #'Optimize New-Object invocation, based on Don Jones' recommendation: https://technet.microsoft.com/en-us/magazine/hh750381.aspx
+    $Private:properties = [ordered]@{
+        'CommandName'        = $Private:MyCommandName
+        'CommandPath'        = $Private:MyCommandPath
+        'CommandType'        = $Private:MyCommandType
+        'CommandModule'      = $Private:MyCommandModule
+        'ModuleName'         = $Private:MyModuleName
+        'CommandParameters'  = $Private:MyCommandParameters.Keys
+        'ParameterSets'      = $Private:MyParameterSets
+        'RemotingCapability' = $Private:MyRemotingCapability
+        'Visibility'         = $Private:MyVisibility
+    }
+    $Private:MyScriptInfo = New-Object -TypeName PSObject -Property $properties
+    Write-Verbose -Message '[Edit-EnvPath] $MyScriptInfo populated'
 #End Region
 
 <#
@@ -83,18 +83,14 @@ Set-StrictMode -Version latest
     None
 #>
 
-Write-Verbose -Message 'Declaring [Global] Function Test-LocalAdmin'
-Function GLOBAL:Test-LocalAdmin {
-	Return ([security.principal.windowsprincipal] [security.principal.windowsidentity]::GetCurrent()).isinrole([Security.Principal.WindowsBuiltInRole] 'Administrator')
-}
-	
 Write-Verbose -Message 'Declaring [Global] Function Set-EnvPath'
 Function GLOBAL:Set-EnvPath {
     [Cmdletbinding(SupportsShouldProcess)]
     param (
         [parameter(Mandatory, 
-            ValueFromPipeline,
-            Position = 0)]
+            Position = 0,
+            ValueFromPipeline
+        )]
         [Alias('Path','Folder')]
         [String[]]$NewPath
     )
@@ -102,7 +98,7 @@ Function GLOBAL:Set-EnvPath {
     # Clean up potential garbage in New Path ($AddedFolder)
     $NewPath = $NewPath.replace(';;',';')
 
-    If ( -not (Test-LocalAdmin) ) {
+    if ( -not (Test-LocalAdmin) ) {
         # Set / override the Environment Path for this session via variable
         if ( $PSCmdlet.ShouldProcess($NewPath) ) {
             $Env:PATH = $NewPath
@@ -124,8 +120,9 @@ Function GLOBAL:Add-EnvPath {
     [Cmdletbinding(SupportsShouldProcess)]
     param (
 	    [parameter(Mandatory, 
-	        ValueFromPipeline,
-	        Position = 0)]
+            Position = 0,
+            ValueFromPipeline
+        )]
         [Alias('Path','Folder')]
 	    [String[]]$AddedFolder
 	)
@@ -157,8 +154,8 @@ Function GLOBAL:Add-EnvPath {
     $OldPath = ($OldPath -Split ';' | Sort-Object -Unique) -join ';'
 
     # See if the new Folder is already IN the Path
-    $PathasArray = ($Env:PATH).split(';')
-    If ($PathasArray -contains $AddedFolder -or $PathAsArray -contains $AddedFolder+'\') {
+    $PathAsArray = ($Env:PATH).split(';')
+    If ($PathAsArray -contains $AddedFolder -or $PathAsArray -contains $AddedFolder+'\') {
         Write-Verbose -Message 'Folder already within $Env:PATH'
         Return $False
     }
@@ -227,9 +224,9 @@ Write-Verbose -Message 'Declaring [Global] Function Test-EnvPath'
 Function GLOBAL:Test-EnvPath {
     [Cmdletbinding()]
     param (
-	    [parameter( 
-	        ValueFromPipeline,
-            Position = 0
+	    [parameter(Mandatory,
+            Position = 0,
+            ValueFromPipeline
         )]
         [Alias('SearchString','String')]
         [String]$Folder
@@ -263,13 +260,17 @@ Function GLOBAL:Remove-EnvPath {
     [Cmdletbinding(SupportsShouldProcess)]
     param (
         [parameter(Mandatory, 
-            ValueFromPipeline,
-            Position = 0)]
+            Position = 0,
+            ValueFromPipeline
+        )]
         [Alias('Path','Folder')]
         [String[]]$RemovedFolder
     )
 
-    If ( -not (Test-LocalAdmin) ) { Write-Warning -Message 'Required Administrator permissions not available.'; Return $False }
+    If (-not (Test-LocalAdmin)) {
+        Write-Warning -Message 'Required Administrator permissions not available.'
+        Return $False
+    }
 	
     # Get the Current Search Path from the Environment keys in the Registry
     $OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path

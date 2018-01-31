@@ -1,0 +1,215 @@
+{
+    "about": [
+        {
+            "author": "@bcdady",
+            "name": "Edit-Module PowerShell Module configuration file",
+            "description": "Define preference and configurations for Merge-Module.ps1.",
+            "type": "PowerShell",
+            "notes" : "consolidated information to new 'about' category",
+            "program": "Merge-Module.ps1",
+            "updated": "01-09-2017",
+            "version": "1.0.1"
+        }
+    ],
+    "DiffTool": {
+        "Name": "Kdiff",
+        "Path": "bin\\kdiff3.exe",
+        "Help_URL": "http://manual.winmerge.org/Command_line.html",
+        "Options": [
+            {
+                "Setting": "AutoAdvance",
+                "Value": "1"
+            },
+            {
+                "Setting": "AutoSaveAndQuitOnMergeWithoutConflicts",
+                "Value": "1"
+            },
+            {
+                "Setting": "BinaryComparison",
+                "Value": "0"
+            },
+            {
+                "Setting": "CreateBakFiles",
+                "Value": "1"
+            },
+            {
+                "Setting": "DirAntiPattern",
+                "Value": "CVS;.deps;.svn;.git;.hg"
+            },
+            {
+                "Setting": "EscapeKeyQuits",
+                "Value": "1"
+            },
+            {
+                "Setting": "FileAntiPattern",
+                "Value": "*.orig;*.o;*.ob`;.git*;*.zip;copy-module.ps1;README.md"
+            },
+            {
+                "Setting": "FullAnalysis",
+                "Value": "1"
+            },
+            {
+                "Setting": "IgnoreCase",
+                "Value": "0"
+            },
+            {
+                "Setting": "IgnoreComments",
+                "Value": "0"
+            },
+            {
+                "Setting": "IgnoreNumbers",
+                "Value": "0"
+            },
+            {
+                "Setting": "RecursiveDirs",
+                "Value": "0"
+            },
+            {
+                "Setting": "ReplaceTabs",
+                "Value": "1"
+            },
+            {
+                "Setting": "RunRegExpAutoMergeOnMergeStart",
+                "Value": "1"
+            },
+            {
+                "Setting": "SameEncoding",
+                "Value": "1"
+            },
+            {
+                "Setting": "ShowIdenticalFiles",
+                "Value": "0"
+            },
+            {
+                "Setting": "ShowInfoDialogs",
+                "Value": "0"
+            },
+            {
+                "Setting": "ShowLineNumbers",
+                "Value": "1"
+            },
+            {
+                "Setting": "ShowWhiteSpace",
+                "Value": "0"
+            },
+            {
+                "Setting": "ShowWhiteSpaceCharacters",
+                "Value": "1"
+            },
+            {
+                "Setting": "SyncMode",
+                "Value": "1"
+            },
+            {
+                "Setting": "TrustDate",
+                "Value": "0"
+            },
+            {
+                "Setting": "TrustDateFallbackToBinary",
+                "Value": "0"
+            },
+            {
+                "Setting": "TrustSize",
+                "Value": "0"
+            },
+            {
+                "Setting": "TryHard",
+                "Value": "1"
+            },
+            {
+                "Setting": "WhiteSpaceEqual",
+                "Value": "0"
+            },
+            {
+                "Setting": "WindowStateMaximised",
+                "Value": "1"
+            }
+        ]
+    },
+    "RepositorySets" : [
+        {
+            "Name": "my_scripts",
+            "SourcePath" : "$env:USERPROFILE\\Documents\\WindowsPowerShell\\Scripts",
+            "TargetPath" : "H:\\My Documents\\WindowsPowerShell\\Scripts",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "gh_scripts",
+            "SourcePath" : "$env:USERPROFILE\\Documents\\WindowsPowerShell\\Scripts",
+            "TargetPath" : "$env:USERPROFILE\\Documents\\GitHub\\MyScripts",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "my_CHprofile",
+            "SourcePath" : "C:\\Users\\bdady\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
+            "TargetPath" : "H:\\My Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "gh_CHprofile",
+            "SourcePath" : "C:\\Users\\bdady\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
+            "TargetPath" : "H:\\My Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "my_AHprofile",
+            "SourcePath" : "C:\\Users\\bdady\\Documents\\WindowsPowerShell\\profile.ps1",
+            "TargetPath" : "H:\\My Documents\\WindowsPowerShell\\profile.ps1",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "gh_AHprofile",
+            "SourcePath" : "C:\\Users\\bdady\\Documents\\WindowsPowerShell\\profile.ps1",
+            "TargetPath" : "H:\\My Documents\\WindowsPowerShell\\profile.ps1",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "R_Edit-Module",
+            "SourcePath" : "H:\\My Documents\\WindowsPowerShell\\Modules\\Edit-Module",
+            "TargetPath" : "R:\\IT\\PowerShell-Modules\\Edit-Module",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "gh_Edit-Module",
+            "SourcePath" : "H:\\My Documents\\WindowsPowerShell\\Modules\\Edit-Module",
+            "TargetPath" : "$env:USERPROFILE\\Documents\\GitHub\\Edit-Module",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "R_ProfilePal",
+            "SourcePath" : "H:\\My Documents\\WindowsPowerShell\\Modules\\ProfilePal",
+            "TargetPath" : "R:\\IT\\PowerShell-Modules\\ProfilePal",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "gh_ProfilePal",
+            "SourcePath" : "H:\\My Documents\\WindowsPowerShell\\Modules\\ProfilePal",
+            "TargetPath" : "$env:USERPROFILE\\Documents\\GitHub\\ProfilePal",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "R_PSLogger",
+            "SourcePath" : "H:\\My Documents\\WindowsPowerShell\\Modules\\PSLogger",
+            "TargetPath" : "R:\\IT\\PowerShell-Modules\\PSLogger",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        },
+        {
+            "Name": "gh_PSLogger",
+            "SourcePath" : "H:\\My Documents\\WindowsPowerShell\\Modules\\PSLogger",
+            "TargetPath" : "$env:USERPROFILE\\Documents\\GitHub\\PSLogger",
+            "MergePath"  : "",
+            "OptionsOverride" : ""
+        }
+    ]
+}

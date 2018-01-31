@@ -5,17 +5,19 @@
 #
 # Generated on: 4/12/2015
 #
-# Updated on: 12/12/2016 : Support editing a module at a path that contains spaces
-# Update 2.2.0 : 7/3/2017   : Add Edit-Path and Open-PSEdit scripts (and their functions) to support using VS Code or another alternative editor. Renamed Fornmat-String function to Format-Path
+# Updated on: 7/3/2017   : Add Edit-Path and Open-PSEdit scripts (and their functions) to support using VS Code or another alternative editor. Renamed Fornmat-String function to Format-Path
+# Updated on: 11/20/2017 : v2.3.0 - Combine previously independent FunctionFinder and Merge-Module (previously in PowerDiff.ps1) functions
+# Updated on: 11/30/2017 : v2.3.1 - Merge in previously distinct PowerDiff.ps1 for copying/diffing/merging modules and scripts
+# Updated on: 01/10/2018 : v2.3.2 - Refinement and output improvement to latest Merge-Module.ps1 (Previously known as PowerDiff)
 #
 
 @{
 
 # Script module or binary module file associated with this manifest.
-RootModule = 'EditModule.psm1'
+RootModule = 'Edit-Module.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.2.0'
+ModuleVersion = '2.3.2'
 
 # ID used to uniquely identify this module
 GUID = '4c59e659-24f7-4370-88ac-1dbdcfdc2e63'
@@ -30,7 +32,7 @@ Author = 'Bryan Dady'
 Copyright = '(c) 2015 Bryan Dady. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'This started as a copy of Scripting Guy Ed Wilson''s Edit-Module function, from his PowerShellISEModule, and was updated to accomodate additional module file editing, such as those module elements added in more recent releases of PowerShell'
+Description = 'This started as a copy of Scripting Guy Ed Wilson''s Edit-Module function, from his PowerShellISEModule, and was updated to accommodate additional module file editing, such as those module elements added in more recent releases of PowerShell'
 
 # Minimum version of the Windows PowerShell engine required by this module
 PowerShellVersion = '3.0'
@@ -57,7 +59,7 @@ PowerShellVersion = '3.0'
 # RequiredAssemblies = @()
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
-ScriptsToProcess = @('Edit-Path.ps1', 'ModuleMembers.ps1', 'Open-PSEdit.ps1', 'Repair-ModuleManifest.ps1')
+ScriptsToProcess = @('Compare-Directory', 'Edit-Path.ps1', 'Get-Function.ps1', 'Merge-Module.ps1', 'ModuleMember.ps1', 'Open-PSEdit.ps1', 'Repair-ModuleManifest.ps1')
 
 # Type files (.ps1xml) to be loaded when importing this module
 # TypesToProcess = @()
@@ -69,7 +71,7 @@ ScriptsToProcess = @('Edit-Path.ps1', 'ModuleMembers.ps1', 'Open-PSEdit.ps1', 'R
 # NestedModules = @()
 
 # Functions to export from this module
-FunctionsToExport = @('Assert-PSEdit', 'Edit-Module', 'Format-Path', 'Find-Function', 'Get-ModuleMember', 'Get-PSEdit', 'Add-Path', 'Get-PathFromRegistry', 'Remove-Path', 'Set-Path', 'Test-LocalAdmin', 'Open-AdminISE', 'Open-PSEdit', 'Repair-ModuleManifest')
+FunctionsToExport = @('Assert-PSEdit', 'Compare-Directory', 'Edit-Module', 'Find-Function', 'Format-Path', 'Get-Function', 'Get-FunctionFile', 'Get-ModuleMember', 'Get-PSEdit', '$GLOBAL:Add-EnvPath', '$GLOBAL:Get-EnvPath', '$GLOBAL:Get-EnvPathFromRegistry', '$GLOBAL:Remove-EnvPath', '$GLOBAL:Repair-EnvPath', '$GLOBAL:Set-EnvPath', '$GLOBAL:Test-EnvPath', '$GLOBAL:Test-LocalAdmin', 'Initialize-Git', 'Merge-Modules', 'Merge-MyPSFiles', 'Merge-Repository', 'Open-AdminEditor', 'Open-PSEdit', 'Repair-ModuleManifest', 'Test-FileTypeAssociation', 'Test-LocalAdmin', 'Test-UserFileType', 'Test-UserProgID')
 
 # Cmdlets to export from this module
 # CmdletsToExport = @()
@@ -78,13 +80,13 @@ FunctionsToExport = @('Assert-PSEdit', 'Edit-Module', 'Format-Path', 'Find-Funct
 # VariablesToExport = @()
 
 # Aliases to export from this module
-AliasesToExport = @('Open-AdminEditor', 'PSEdit')
+AliasesToExport = @('Open-AdminEditor', 'PSEdit', 'Code', 'Init-Git')
 
 # List of all modules packaged with this module
 # ModuleList = @()
 
 # List of all files packaged with this module
-FileList = @('Edit-Path.ps1', 'EditModule.psm1', 'ModuleMembers.ps1', 'Open-PSEdit.ps1', 'Repair-ModuleManifest.ps1')
+FileList = @('Compare-Directory.ps1', 'Edit-Path.ps1', 'Get-Function.ps1', 'Merge-Module.ps1', 'Merge-Module.json', 'ModuleMember.ps1', 'Open-PSEdit.ps1', 'Repair-ModuleManifest.ps1')
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
 # PrivateData = @()
