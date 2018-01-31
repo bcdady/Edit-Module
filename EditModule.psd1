@@ -6,7 +6,7 @@
 # Generated on: 4/12/2015
 #
 # Updated on: 12/12/2016 : Support editing a module at a path that contains spaces
-# Updated on: 7/3/2017   : Add Edit-Path and Open-PSEdit scripts (and their functions) to support using VS Code or another alternative editor. Renamed Fornmat-String function to Format-Path
+# Update 2.2.0 : 7/3/2017   : Add Edit-Path and Open-PSEdit scripts (and their functions) to support using VS Code or another alternative editor. Renamed Fornmat-String function to Format-Path
 #
 
 @{
