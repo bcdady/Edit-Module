@@ -523,10 +523,11 @@ function Merge-Modules {
             [bool]$Global:onServer = $true
         }
     }
+
     #Region Merge Modules
-        
     # Declare root path of where modules should be merged To
-    $ModulesRepo = Join-Path -Path 'R:' -ChildPath 'IT\repo\Modules'
+    $ModulesRepo = 'R:\IT\repo\Modules'
+    if (Test-Path -Path $ModulesRepo -ErrorAction 'Ignore') {
 
     foreach ($module in $3PModules) {
         # Robocopy /MIR instead of  merge ... no need to merge 3rd party modules
@@ -565,6 +566,9 @@ function Merge-Modules {
                 Write-Warning -Message ('Failed to confirm paths; {0} OR {1}' -f $rcSource, $rcTarget)
             }
         }
+        }
+    } else {
+        Write-Verbose -Message ('Unable to confirm availability of Path: {0}' -f $ModulesRepo)
     }
     #End Region
 
