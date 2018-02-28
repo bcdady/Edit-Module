@@ -1,3 +1,5 @@
+#!/usr/local/bin/pwsh
+#Requires -Version 4
 # Compare-Directory.ps1
 # https://gist.github.com/victorvogelpoel/6636754
 # Compare files in one or more directories and return file difference results
@@ -46,7 +48,8 @@ function Add-FileComparisonAttribute {
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param (
-        [Parameter(Mandatory=$true)][System.IO.DirectoryInfo]$DirectoryPath,
+        [Parameter(Mandatory,HelpMessage='Specify File system Directory Path to process.')]
+		[IO.DirectoryInfo]$DirectoryPath,
         [array]$ExcludeFile,
         [array]$ExcludeDirectory,
         [switch]$Recurse = $false
@@ -89,28 +92,28 @@ function Compare-Directory {
     [OutputType([bool])]
     [CmdletBinding()]
 	param (
-		[Parameter(Mandatory=$true, position=0, ValueFromPipelineByPropertyName=$true, HelpMessage='The reference directory to compare one or more difference directories to.')]
+		[Parameter(Mandatory, position=0, ValueFromPipelineByPropertyName, HelpMessage='The reference directory to compare one or more difference directories to.')]
 		[IO.DirectoryInfo]$ReferenceDirectory,
 
-		[Parameter(Mandatory=$true, position=1, ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true, HelpMessage='One or more directories to compare to the reference directory.')]
+		[Parameter(Mandatory, position=1, ValueFromPipeline, ValueFromPipelineByPropertyName, HelpMessage='One or more directories to compare to the reference directory.')]
 		[IO.DirectoryInfo]$DifferenceDirectory,
 
-		[Parameter(ValueFromPipelineByPropertyName=$true, HelpMessage='Recurse the directories')]
+		[Parameter(ValueFromPipelineByPropertyName)]
 		[switch]$Recurse,
 
-		[Parameter(ValueFromPipelineByPropertyName=$true, HelpMessage='Files to exclude from the comparison')]
+		[Parameter(ValueFromPipelineByPropertyName)]
 		[array]$ExcludeFile,
 
-		[Parameter(ValueFromPipelineByPropertyName=$true, HelpMessage='Directories to exclude from the comparison')]
+		[Parameter(ValueFromPipelineByPropertyName)]
 		[array]$ExcludeDirectory,
 
-		[Parameter(ValueFromPipelineByPropertyName=$true, HelpMessage='Displays only the characteristics of compared objects that are equal.')]
+		[Parameter(ValueFromPipelineByPropertyName)]
 		[switch]$ExcludeDifferent,
 		
-		[Parameter(ValueFromPipelineByPropertyName=$true, HelpMessage='Displays characteristics of files that are equal. By default, only characteristics that differ between the reference and difference files are displayed.')]
+		[Parameter(ValueFromPipelineByPropertyName)]
 		[switch]$IncludeEqual,
 		
-		[Parameter(ValueFromPipelineByPropertyName=$true, HelpMessage='Passes the objects that differed to the pipeline.')]
+		[Parameter(ValueFromPipelineByPropertyName)]
 		[switch]$PassThru
 	)
 
@@ -133,19 +136,19 @@ function Compare-Directory {
 
 				if ( -not $PassThru) {
                     foreach ($result in $results) {
-                        $path 		  = $ReferenceDirectory
-                        $pathFiles	= $referenceDirectoryFiles
+                        $path 	   = $ReferenceDirectory
+                        $pathFiles = $referenceDirectoryFiles
 						
                         if ($result.SideIndicator -eq '=>') {
-                            $path 		  = $nextPath
-                            $pathFiles	= $nextDifferenceFiles
+                            $path 	   = $nextPath
+                            $pathFiles = $nextDifferenceFiles
                         }
                         
                         # Find the original item in the files array
                         # $itemPath = $(Join-Path $path $result.CompareName) #.ToString().TrimEnd('\')
                         $item = $pathFiles | Where-Object -FilterScript { $PSItem.fullName -eq $(Join-Path -Path $path -ChildPath $result.Name) }
 
-                        $result | Add-Member -NotePropertyName 'Item' -NotePropertyValue $item
+                        $results | Add-Member -NotePropertyName 'Item' -NotePropertyValue $item -Force -PassThru
                     }
 				}
 				# Write-Output $results

@@ -1,9 +1,9 @@
-﻿#!/usr/local/bin/powershell
+﻿#!/usr/local/bin/pwsh
 #Requires -Version 2
 
 [CmdletBinding()]
 Param()
-Set-StrictMode -Version latest
+#Set-StrictMode -Version latest
 
 #Region MyScriptInfo
     Write-Verbose -Message '[Edit-EnvPath] Populating $MyScriptInfo'
@@ -43,7 +43,7 @@ Set-StrictMode -Version latest
         'RemotingCapability' = $Private:MyRemotingCapability
         'Visibility'         = $Private:MyVisibility
     }
-    $Private:MyScriptInfo = New-Object -TypeName PSObject -Property $properties
+    $Private:MyScriptInfo = New-Object -TypeName PSObject -Property $Private:properties
     Write-Verbose -Message '[Edit-EnvPath] $MyScriptInfo populated'
 #End Region
 
@@ -84,11 +84,12 @@ Set-StrictMode -Version latest
 #>
 
 Write-Verbose -Message 'Declaring [Global] Function Set-EnvPath'
-Function GLOBAL:Set-EnvPath {
+Function Set-EnvPath {
     [Cmdletbinding(SupportsShouldProcess)]
     param (
-        [parameter(Mandatory, 
+        [parameter(Mandatory,
             Position = 0,
+            HelpMessage='Provide the explicit, complete, new PATH environment variable value.', 
             ValueFromPipeline
         )]
         [Alias('Path','Folder')]
@@ -108,7 +109,7 @@ Function GLOBAL:Set-EnvPath {
     } else {
         # Set / override the Environment Path permanently, via registry
         if ( $PSCmdlet.ShouldProcess($NewPath) ) {
-            Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH –Value $NewPath -
+            Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH -Value $NewPath
             # Show what we just did
             Return $NewPath
         }
@@ -116,78 +117,74 @@ Function GLOBAL:Set-EnvPath {
 }
 
 Write-Verbose -Message 'Declaring [Global] Function Add-EnvPath'
-Function GLOBAL:Add-EnvPath {
-    [Cmdletbinding(SupportsShouldProcess)]
-    param (
-	    [parameter(Mandatory, 
-            Position = 0,
-            ValueFromPipeline
-        )]
-        [Alias('Path','Folder')]
-	    [String[]]$AddedFolder
-	)
+Function Add-EnvPath {
+  [Cmdletbinding(SupportsShouldProcess)]
+  param (
+    [parameter(Mandatory, 
+        Position = 0,
+        HelpMessage='Provide the new path value to add to the PATH environment variable.',
+        ValueFromPipeline
+    )]
+    [Alias('Path','Folder')]
+    [String[]]$AddedFolder
+  )
 
-    # See if a new Folder has been supplied
-    If (-not $AddedFolder) {
-        Write-Warning -Message 'No folder specified. $Env:PATH Unchanged'
-        Return $False
+  # See if a new Folder has been supplied
+  If (-not $AddedFolder) {
+    Write-Warning -Message 'No folder specified. $Env:PATH Unchanged'
+    Return $False
+  }
+
+  # See if the new Folder exists on the File system
+  If (-not (Test-Path -Path $AddedFolder -PathType Container)) {
+    Write-Warning -Message 'Folder (specified by Parameter) is not a Directory or was not found; Cannot be added to $Env:PATH'
+    Return $False
+  }
+
+  If (Test-LocalAdmin) {
+    # Get the Current Search Path from the Environment keys in the Registry
+    # Make this more REG_EXPAND_SZ friendly -- see https://www.sepago.com/blog/2013/08/22/reading-and-writing-regexpandsz-data-with-powershell
+    $OldPath = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('System\CurrentControlSet\Control\Session Manager\Environment').GetValue('PATH',$False, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+  } else {
+    # Get the Environment Path for this session via variable
+    $OldPath = $Env:PATH
+  }
+
+  # Clean up duplicates and potential garbage from 'Old' Path
+  $OldPath = $OldPath.replace(';;',';')
+  $OldPath = ($OldPath -Split ';' | Sort-Object -Unique) -join ';'
+
+  # See if the new Folder is already IN the Path
+  $PathAsArray = ($Env:PATH).split(';')
+  If ($PathAsArray -contains $AddedFolder -or $PathAsArray -contains $AddedFolder+'\') {
+    Write-Verbose -Message 'Folder already within $Env:PATH'
+    Return $False
+  }
+
+  # Clean up potential garbage in New Path ($AddedFolder)
+  $AddedFolder = $AddedFolder.replace(';;',';')
+  $AddedFolder = Resolve-Path -Path $AddedFolder
+
+  # Set the New Path
+  $NewPath = ('{0};{1}' -f $OldPath, $AddedFolder)
+  If (Test-LocalAdmin) {
+    if ( $PSCmdlet.ShouldProcess($AddedFolder) ) {
+      Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH -Value $NewPath
+      # Show our results back to the world
+      Return $NewPath 
     }
-
-    # See if the new Folder exists on the File system
-    If (-not (Test-Path $AddedFolder -PathType Container)) {
-        Write-Warning -Message 'Folder (specified by Parameter) is not a Directory or was not found; Cannot be added to $Env:PATH'
-        Return $False
+  } else {
+    # Set / override the Environment Path for this session via variable
+    if ( $PSCmdlet.ShouldProcess($NewPath) ) {
+      $Env:PATH = $NewPath
+      # Show what we just did
+      Return $NewPath
     }
-
-    If (Test-LocalAdmin) {
-        # Get the Current Search Path from the Environment keys in the Registry
-        # Make this more REG_EXPAND_SZ friendly -- see https://www.sepago.com/blog/2013/08/22/reading-and-writing-regexpandsz-data-with-powershell
-        #$OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
-        $OldPath = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey("System\CurrentControlSet\Control\Session Manager\Environment").GetValue("PATH",$False, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
-    } else {
-        # Get the Environment Path for this session via variable
-        $OldPath = $Env:PATH
-    }
-
-    # Clean up duplicates and potential garbage from 'Old' Path
-    $OldPath = $OldPath.replace(';;',';')
-    $OldPath = ($OldPath -Split ';' | Sort-Object -Unique) -join ';'
-
-    # See if the new Folder is already IN the Path
-    $PathAsArray = ($Env:PATH).split(';')
-    If ($PathAsArray -contains $AddedFolder -or $PathAsArray -contains $AddedFolder+'\') {
-        Write-Verbose -Message 'Folder already within $Env:PATH'
-        Return $False
-    }
-
-    # If (-not($AddedFolder[-1] -match '\')) {
-    #     $Newpath = $Newpath+'\'
-    # }
-
-    # Clean up potential garbage in New Path ($AddedFolder)
-    $AddedFolder = $AddedFolder.replace(';;',';')
-    $AddedFolder = Resolve-Path -Path $AddedFolder
-
-    # Set the New Path
-    $NewPath = "$OldPath;$AddedFolder"
-    If (Test-LocalAdmin) {
-        if ( $PSCmdlet.ShouldProcess($AddedFolder) ) {
-            Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH –Value $NewPath
-            # Show our results back to the world
-            Return $NewPath 
-        }
-    } else {
-        # Set / override the Environment Path for this session via variable
-        if ( $PSCmdlet.ShouldProcess($NewPath) ) {
-            $Env:PATH = $NewPath
-            # Show what we just did
-            Return $NewPath
-        }
-    }
+  }
 }
 
 Write-Verbose -Message 'Declaring [Global] Function Repair-EnvPath'
-Function GLOBAL:Repair-EnvPath {
+Function Repair-EnvPath {
     # Split Path into a unique member array for processing
     $NewPath = $Env:Path.Split(';') | Sort-Object -Unique
 
@@ -211,84 +208,86 @@ Function GLOBAL:Repair-EnvPath {
 }
 
 Write-Verbose -Message 'Declaring [Global] Function Get-EnvPath'
-Function GLOBAL:Get-EnvPath {
+Function Get-EnvPath {
     Return $Env:Path
 }
 
 Write-Verbose -Message 'Declaring [Global] Function Get-EnvPathFromRegistry'
-Function GLOBAL:Get-EnvPathFromRegistry {
+Function Get-EnvPathFromRegistry {
     Return (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
 }
 
 Write-Verbose -Message 'Declaring [Global] Function Test-EnvPath'
-Function GLOBAL:Test-EnvPath {
-    [Cmdletbinding()]
-    param (
-	    [parameter(Mandatory,
-            Position = 0,
-            ValueFromPipeline
-        )]
-        [Alias('SearchString','String')]
-        [String]$Folder
-        ,
-	    [parameter( 
-            Position = 1
-        )]
-        [Alias('Source')]
-	    [Switch]$FromRegistry = $False
-    )
+Function Test-EnvPath {
+  [Cmdletbinding()]
+  param (
+    [parameter(Mandatory,
+        Position = 0,
+        HelpMessage='Provide the path value to Test if it is found in the PATH environment variable.',
+        ValueFromPipeline
+    )]
+    [Alias('SearchString','String')]
+    [String]$Folder
+    ,
+    [parameter( 
+        Position = 1
+    )]
+    [Alias('Source')]
+    [Switch]$FromRegistry = $False
+  )
 
-    if ($FromRegistry) {
-        $VarPath = Get-EnvPathFromRegistry
-    } else {
-        $VarPath = Get-EnvPath
-    }
-    # Split Path into a unique member array for processing
-    $PathArray = $VarPath.Split(';') | Sort-Object -Unique
-    if ($PathArray -like $Folder) {
-        Write-Verbose -Message ($PathArray -like $Folder)
-        $Result = $True
-    } else {
-            $Result = $False
-    }
+  if ($FromRegistry) {
+    $VarPath = Get-EnvPathFromRegistry
+  } else {
+    $VarPath = Get-EnvPath
+  }
+  # Split Path into a unique member array for processing
+  $PathArray = $VarPath.Split(';') | Sort-Object -Unique
+  if ($PathArray -like $Folder) {
+    Write-Verbose -Message ($PathArray -like $Folder)
+    $Result = $True
+  } else {
+    $Result = $False
+  }
         
-    Return $Result
+  Return $Result
 }
 
 Write-Verbose -Message 'Declaring [Global] Function Remove-EnvPath'
-Function GLOBAL:Remove-EnvPath {
-    [Cmdletbinding(SupportsShouldProcess)]
-    param (
-        [parameter(Mandatory, 
-            Position = 0,
-            ValueFromPipeline
-        )]
-        [Alias('Path','Folder')]
-        [String[]]$RemovedFolder
-    )
+Function Remove-EnvPath {
+  [Cmdletbinding(SupportsShouldProcess)]
+  param (
+    [parameter(Mandatory, 
+        Position = 0,
+        HelpMessage='Provide the path value to remove from the PATH environment variable.',
+        ValueFromPipeline
+    )]
+    [Alias('Path','Folder')]
+    [String[]]$RemovedFolder
+  )
 
-    If (-not (Test-LocalAdmin)) {
-        Write-Warning -Message 'Required Administrator permissions not available.'
-        Return $False
-    }
+  If (-not (Test-LocalAdmin)) {
+    Write-Warning -Message 'Required Administrator permissions not available.'
+    Return $False
+  }
 	
-    # Get the Current Search Path from the Environment keys in the Registry
-    $OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
+  # Get the Current Search Path from the Environment keys in the Registry
+  $OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
 
-    # Verify item exists as an EXACT match before removing
-    If ($Oldpath.split(';') -contains $RemovedFolder) {
-        # Find the value to remove, replace it with $NULL.  If it’s not found, nothing will change
-        $NewPath = $OldPath.replace($RemovedFolder,$NULL)
-    }
+  # Verify item exists as an EXACT match before removing
+  If ($Oldpath.split(';') -contains $RemovedFolder) {
+    # Find the value to remove, replace it with $NULL.  If it's not found, nothing will change
+    $NewPath = $OldPath.replace($RemovedFolder,$NULL)
+  }
 
-    # Clean up any potential garbage from Path
-    $Newpath = $NewPath.replace(';;',';')
+  # Clean up any potential garbage from Path
+  $Newpath = $NewPath.replace(';;',';')
 
-    # Update the Environment Path
-    if ( $PSCmdlet.ShouldProcess($RemovedFolder) ) {
-        Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH –Value $NewPath
+  # Update the Environment Path
+  if ( $PSCmdlet.ShouldProcess($RemovedFolder) ) {
+    Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH -Value $NewPath
 
-        # Show what we just did
-        Return $NewPath
-    }
+    # Show what we just did
+    Return $NewPath
+  }
 }

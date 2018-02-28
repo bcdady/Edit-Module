@@ -9,6 +9,7 @@
 # Updated on: 11/20/2017 : v2.3.0 - Combine previously independent FunctionFinder and Merge-Module (previously in PowerDiff.ps1) functions
 # Updated on: 11/30/2017 : v2.3.1 - Merge in previously distinct PowerDiff.ps1 for copying/diffing/merging modules and scripts
 # Updated on: 01/10/2018 : v2.3.2 - Refinement and output improvement to latest Merge-Module.ps1 (Previously known as PowerDiff)
+# Updated on: 02/27/2018 : v2.3.3 - Removed personalized functions from Merge-Module.ps1 and my repository settings in Merge-Module.json
 #
 
 @{
@@ -17,7 +18,7 @@
 RootModule = 'Edit-Module.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.3.2'
+ModuleVersion = '2.3.3'
 
 # ID used to uniquely identify this module
 GUID = '4c59e659-24f7-4370-88ac-1dbdcfdc2e63'
@@ -59,7 +60,7 @@ PowerShellVersion = '3.0'
 # RequiredAssemblies = @()
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
-ScriptsToProcess = @('Compare-Directory', 'Edit-Path.ps1', 'Get-Function.ps1', 'Merge-Module.ps1', 'ModuleMember.ps1', 'Open-PSEdit.ps1', 'Repair-ModuleManifest.ps1')
+ScriptsToProcess = @('Compare-Directory.ps1', 'Edit-Path.ps1', 'Get-Function.ps1', 'Merge-Module.ps1', 'ModuleMember.ps1', 'Open-PSEdit.ps1', 'Repair-ModuleManifest.ps1')
 
 # Type files (.ps1xml) to be loaded when importing this module
 # TypesToProcess = @()
@@ -71,7 +72,7 @@ ScriptsToProcess = @('Compare-Directory', 'Edit-Path.ps1', 'Get-Function.ps1', '
 # NestedModules = @()
 
 # Functions to export from this module
-FunctionsToExport = @('Assert-PSEdit', 'Compare-Directory', 'Edit-Module', 'Find-Function', 'Format-Path', 'Get-Function', 'Get-FunctionFile', 'Get-ModuleMember', 'Get-PSEdit', '$GLOBAL:Add-EnvPath', '$GLOBAL:Get-EnvPath', '$GLOBAL:Get-EnvPathFromRegistry', '$GLOBAL:Remove-EnvPath', '$GLOBAL:Repair-EnvPath', '$GLOBAL:Set-EnvPath', '$GLOBAL:Test-EnvPath', '$GLOBAL:Test-LocalAdmin', 'Initialize-Git', 'Merge-Modules', 'Merge-MyPSFiles', 'Merge-Repository', 'Open-AdminEditor', 'Open-PSEdit', 'Repair-ModuleManifest', 'Test-FileTypeAssociation', 'Test-LocalAdmin', 'Test-UserFileType', 'Test-UserProgID')
+FunctionsToExport = @('Add-EnvPath', 'Assert-PSEdit', 'Compare-Directory', 'Edit-Module', 'Find-Function', 'Format-Path', 'Get-EnvPath', 'Get-EnvPathFromRegistry', 'Get-Function', 'Get-FunctionFile', 'Get-ModuleMember', 'Get-PSEdit', 'Initialize-Git', 'Merge-Repository', 'Open-AdminEditor', 'Open-PSEdit', 'Remove-EnvPath', 'Repair-EnvPath', 'Repair-ModuleManifest', 'Set-EnvPath', 'Test-EnvPath', 'Test-FileTypeAssociation', 'Test-LocalAdmin', 'Test-UserFileType', 'Test-UserProgID', 'Update-Repository')
 
 # Cmdlets to export from this module
 # CmdletsToExport = @()
@@ -88,8 +89,32 @@ AliasesToExport = @('Open-AdminEditor', 'PSEdit', 'Code', 'Init-Git')
 # List of all files packaged with this module
 FileList = @('Compare-Directory.ps1', 'Edit-Path.ps1', 'Get-Function.ps1', 'Merge-Module.ps1', 'Merge-Module.json', 'ModuleMember.ps1', 'Open-PSEdit.ps1', 'Repair-ModuleManifest.ps1')
 
-# Private data to pass to the module specified in RootModule/ModuleToProcess
-# PrivateData = @()
+# Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
+PrivateData = @{
+
+    PSData = @{
+
+        # Tags applied to this module. These help with module discovery in online galleries.
+         Tags = @('PSModule', 'Edit-Module', 'Merge-Module', 'Open-PSEdit', 'Compare-Directory')
+
+        # A URL to the license for this module.
+        # LicenseUri = ''
+
+        # A URL to the main website for this project.
+        ProjectUri = 'https://github.com/bcdady/Edit-Module/'
+
+        # A URL to an icon representing this module.
+        # IconUri = ''
+
+        # ReleaseNotes of this module
+        ReleaseNotes = '02/27/2018 : v2.3.3 - Removed personalized functions from Merge-Module.ps1 and my repository settings in Merge-Module.json;Improved for and tested on PowerShell Core (6.0.1)'
+
+        # External dependent modules of this module
+        # ExternalModuleDependencies = ''
+
+    } # End of PSData hashtable
+
+} # End of PrivateData hashtable
 
 # HelpInfo URI of this module
 # HelpInfoURI = @()

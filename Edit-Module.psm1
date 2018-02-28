@@ -1,4 +1,5 @@
-﻿#Requires -version 3 -Modules PSLogger
+﻿#!/usr/local/bin/pwsh
+#Requires -version 3 -Modules PSLogger
 [cmdletbinding()]
 Param()
 
@@ -65,8 +66,8 @@ Function Edit-Module {
         [Parameter(
             Mandatory,
             Position = 0,
-            ValueFromPipeline = $true,
-            ValueFromPipelineByPropertyName = $true,
+            ValueFromPipeline,
+            ValueFromPipelineByPropertyName,
             HelpMessage = 'Specify a module to edit'
         )]
         [ValidateScript({$PSItem -in (Get-Module -ListAvailable | Where-Object {($PSItem.ModuleType -eq 'Script') -and ($($PSItem.Version -as [string]) -gt 0.1) -and ($PSItem.Path -NotLike '*system32*')}).Name})]
@@ -148,7 +149,7 @@ Function Edit-Module {
                         Open-PSEdit -ArgumentList $ModDataFile,$ModRootFile # -filenames Format-Path($ModDataFile),Format-Path($ModRootFile)
                     } else {
                         # Open modules in new ISE editor instance, from console, with current permissions
-                        Write-Debug -Message ('& {0} {1}, {2}' -f $PSEdit, $ModRootFile)
+                        Write-Debug -Message ('& {0} {1}, {2}' -f $PSEdit, $ModDataFile, $ModRootFile)
                         Open-PSEdit -ArgumentList $ModDataFile,$ModRootFile # & $PSEdit Format-Path($ModDataFile,$ModRootFile -join ',')
                     }
                 }
@@ -276,10 +277,10 @@ Function Open-AdminEditor {
     [cmdletbinding(SupportsShouldProcess)]
     Param(
         [Parameter(
-            Mandatory = $true,
+            Mandatory,
             Position = 0,
-            ValueFromPipeline = $true,
-            ValueFromPipelineByPropertyName = $true,
+            ValueFromPipeline,
+            ValueFromPipelineByPropertyName,
             HelpMessage = 'Specify a module name to edit'
         )]
         [ValidateScript({$PSItem -split ',\s*' | ForEach-Object {test-path -Path $PSItem -PathType Leaf}})]
@@ -300,7 +301,7 @@ Function Open-AdminEditor {
     } else {
         Write-Log -Message ('Attempting to launch {0} with elevated (RunAs) privileges.' -f $Path) -Function EditModule
         Write-Debug -Message ('Start-Process -FilePath {0} -ArgumentList {1} -Verb RunAs -WindowStyle Normal' -f $PSEdit, (Format-Path -Path $Path))
-        Start-Process -FilePath $PSEdit -ArgumentList Format-Path -FilePath -Path $Path -Verb RunAs -WindowStyle Normal
+        Start-Process -FilePath $PSEdit -ArgumentList (Format-Path -Path $Path) -Verb RunAs -WindowStyle Normal
     }
 }
 
@@ -329,7 +330,7 @@ Function Format-Path {
     # Conditionally update the specified variable to wrap a string that contains a space with double-quotes
     [cmdletbinding()]
     Param (
-      [Parameter(Mandatory=$true,
+      [Parameter(Mandatory,
         HelpMessage='Specify Path String to format (double-quote) if necesarry.'
       )]
       [String]$Path

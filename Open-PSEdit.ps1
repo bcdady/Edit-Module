@@ -1,10 +1,13 @@
-#!/usr/local/bin/powershell
+#!/usr/local/bin/pwsh
 #Requires -Version 3
 [CmdletBinding()]
 Param()
 #Set-StrictMode -Version latest
 
-# Ensure this script is dot-sourced, to get access to it''s contained functions
+# Declare path where the functions below should look for git.exe
+# If/when needed, this path will be added to $Env:Path as a dependency of VS Code and some extensions
+$GitPath = Join-Path -Path $myPSSHome -ChildPath 'Resources\GitPortable\cmd'
+Set-Variable -Name GitPath -Value (Join-Path -Path $myPSSHome -ChildPath 'Resources\GitPortable\cmd') -Option AllScope
 
 #Region MyScriptInfo
     Write-Verbose -Message '[Open-PSEdit] Populating $MyScriptInfo'
@@ -52,11 +55,11 @@ Param()
     }
 #End Region
 
-# Detect older versions of PowerShell and add in new automatic variables for more cross-platform consistency
+# Detect older versions of PowerShell and add in new automatic variables for more cross-platform consistency in PS Core
 if (-not ((Get-Variable -Name IsWindows -ErrorAction Ignore) -eq $true)) { 
-    $IsWindows = $false
+    Set-Variable -Name IsWindows -Value $false -ErrorAction Ignore
     if ($Host.Version.Major -le 5) {
-        $IsWindows = $true
+        Set-Variable -Name IsWindows -Value $true -ErrorAction Ignore
     }
 }
 
@@ -72,10 +75,6 @@ if ($IsWindows) {
 #Write-Verbose -Message 'Initializing .\Edit-Path.ps1'
 #. $(Join-Path -Path (Split-Path -Path (Resolve-Path -Path $MyScriptInfo.CommandPath) -Parent) -Childpath 'Edit-Path.ps1')
 
-# Declare path where the functions below should look for git.exe
-# If/when needed, this path will be added to $Env:Path as a dependency of VS Code and some extensions
-$GitPath = 'R:\IT\Microsoft Tools\VSCode\GitPortable\cmd'
-
 Write-Verbose -Message 'Declaring Function Get-PSEdit'
 Function Get-PSEdit {
     Write-Verbose -Message 'Getting environment variable PSEdit'
@@ -88,7 +87,7 @@ Function Get-PSEdit {
 
 Write-Verbose -Message 'Declaring Function Assert-PSEdit'
 Function Assert-PSEdit {
-    [CmdletBinding(ConfirmImpact='High',SupportsShouldProcess=$true)]
+    [CmdletBinding(ConfirmImpact='High',SupportsShouldProcess)]
     Param (
         [Parameter(Position=0)]
         [ValidateScript({Test-Path -Path (Resolve-Path -Path $PSItem)})]
@@ -129,11 +128,11 @@ Function Assert-PSEdit {
     }
 
     if ($null -ne $vscode) {
-        Write-Verbose -Message "Setting `$Env:PSEdit to `$vscode: $vscode"
+        Write-Verbose -Message ('Setting `$Env:PSEdit to `$vscode: {0}' -f $vscode)
         $Env:PSEdit = $vscode
     } elseif (Test-Path -Path $Path -PathType Leaf -ErrorAction SilentlyContinue) {
             $Path = Resolve-Path -Path $Path
-            Write-Verbose -Message "Setting `$Env:PSEdit to Path (Parameter): $Path"
+            Write-Verbose -Message ('Setting `$Env:PSEdit to Path (Parameter): {0}' -f $Path)
             $Env:PSEdit = $Path
             if ($IsWindows -and ($Path -like '*\\code\.')) {
                 # Check and update $Env:PATH to include path to code; some code extensions look for code in the PATH
@@ -151,7 +150,7 @@ Function Assert-PSEdit {
       #>
             }
     } elseif ($PSISE) {
-        Write-Verbose -Message "Setting `$Env:PSEdit to $PSISE"
+        Write-Verbose -Message ('Setting `$Env:PSEdit to {0}' -f $PSISE)
         $Env:PSEdit = $PSISE
     }
 
@@ -169,8 +168,8 @@ Function Test-FileTypeAssociation {
         [string]$Description = 'code file'
     )
     $ErrorActionPreference = 'SilentlyContinue'
-    $Answer = (Get-ItemProperty -Path "HKCU:\Software\Classes\$ProgID" -Name '(Default)' -ErrorAction SilentlyContinue).'(Default)'
-    Write-Verbose -Message "ProgID $ProgID is associated as '$Answer'"
+    $Answer = (Get-ItemProperty -Path ('HKCU:\Software\Classes\{0}' -f $ProgID) -Name '(Default)' -ErrorAction SilentlyContinue).'(Default)'
+    Write-Verbose -Message ("ProgID {0} is associated as '{1}'" -f $ProgID, $Answer)
     $ErrorActionPreference = 'Continue'
     if ($Answer -eq $Description) {
         return $true
@@ -181,7 +180,7 @@ Function Test-FileTypeAssociation {
 
 Write-Verbose -Message 'Declaring Function Add-VSCFileTypeAssociation'
 Function Add-VSCFileTypeAssociation {
-  [CmdletBinding(ConfirmImpact='High',SupportsShouldProcess=$true)]
+  [CmdletBinding(ConfirmImpact='High',SupportsShouldProcess)]
   # see https://msdn.microsoft.com/en-us/library/dd878260(VS.85).aspx
   Param (
     [Parameter(Position=0)]
@@ -226,7 +225,7 @@ Function Add-VSCFileTypeAssociation {
             Write-Verbose -Message ('Detected HKCU:\Software\Classes\{0}' -f $FileType)
             try {
                 Write-Verbose -Message ('Get-ItemProperty -Path "HKCU:\Software\Classes\{0}" -Name "(Default)"' -f $FileType)
-                $default = (Get-ItemProperty -Path "HKCU:\Software\Classes\$FileType" | Select-Object -Property '(default)').'(default)'
+                $default = (Get-ItemProperty -Path ('HKCU:\Software\Classes\{0}' -f $FileType) | Select-Object -Property '(default)').'(default)'
                 $UserFileTypeSet = $true
             }
             catch {
@@ -263,14 +262,14 @@ Function Add-VSCFileTypeAssociation {
             Write-Verbose -Message ('Detected HKCU:\Software\Classes\{0}' -f $ProgID)
             try {
                 Write-Verbose -Message ('Get-ItemProperty -Path "HKCU:\Software\Classes\{0}" -Name "(Default)"' -f $ProgID)
-                $default = (Get-ItemProperty -Path "HKCU:\Software\Classes\$ProgID" | Select-Object -Property '(default)').'(default)'
+                $default = (Get-ItemProperty -Path ('HKCU:\Software\Classes\{0}' -f $ProgID) | Select-Object -Property '(default)').'(default)'
                 $UserFileTypeSet = $true
             }
             catch {
                 Write-Verbose -Message ('Get-ItemProperty -Path "HKLM:\Software\Classes\{0}" -Name "(Default)"' -f $ProgID)
-                $default = (Get-ItemProperty -Path "HKLM:\Software\Classes\$ProgID" | Select-Object -Property '(default)').'(default)'
+                $default = (Get-ItemProperty -Path ('HKLM:\Software\Classes\{0}' -f $ProgID) | Select-Object -Property '(default)').'(default)'
                 Write-Verbose -Message ('Set-ItemProperty -Path "HKCU:\Software\Classes\{0}" -Name "(Default)" -Value {1}' -f $ProgID,$default)
-                $null = Set-ItemProperty -Path "HKCU:\Software\Classes\$ProgID" -Name '(Default)' -Value $default -Force -ErrorAction SilentlyContinue
+                $null = Set-ItemProperty -Path ('HKCU:\Software\Classes\{0}' -f $ProgID) -Name '(Default)' -Value $default -Force -ErrorAction SilentlyContinue
             }
             Write-Verbose -Message ('{0} ProgID is {1}' -f $ProgID, $default)
             $UserFileTypeSet = $true
@@ -328,11 +327,11 @@ Function Add-VSCFileTypeAssociation {
     Write-Verbose -Message 'Declaring Function Add-OpenWithProgID'
     function Add-OpenWithProgID {
         Param (
-            [Parameter(Position=0)]
+            [Parameter(Mandatory,Position=0,HelpMessage='Specify File Type to add/update association.')]
             [ValidateNotNullorEmpty()]
             [string]
             $FileType,
-            [Parameter(Position=1)]
+            [Parameter(Mandatory,Position=1,HelpMessage='Specify ProgID to associate FileType with.')]
             [string]
             $OpenWithProgid
         )
@@ -434,7 +433,7 @@ $CodeFileTypes = DATA {
         if (Test-UserProgID -FileType $ext) {
             Write-Verbose -Message 'ProgID for FileType {0} Description already defined'
         } else {
-            Write-Verbose -Message ('Add-UserProgID -FileType {0} -Description {1}' -f $ext, "$($CodeProgID.$($CodeFileTypes.$ext))")
+            Write-Verbose -Message ('Add-UserProgID -FileType {0} -Description {1}' -f $ext, ('{0}' -f $CodeProgID.$($CodeFileTypes.$ext)))
             Add-UserProgID -FileType $ext -Description $($CodeProgID.$($CodeFileTypes.$ext))
         }
         
@@ -442,10 +441,10 @@ $CodeFileTypes = DATA {
         Write-Verbose -Message ('{0} (Default) Description is {1}' -f $ext,$default)
         if ($default -eq "$ProgID$ext") {
             # Current ProgID matches what we'd set it to
-            Write-Verbose -Message ('ProgID for FileType {0} assigned to {1}' -f $default, "$ProgID$ext")
+            Write-Verbose -Message ('ProgID for FileType {0} assigned to {1}{2}' -f $default, $ProgID, $ext)
         } else {
             # just add OpenWithProgIDs
-            Write-Verbose -Message ('Add-OpenWithProgID -FileType {0} -OpenWithProgid {1}' -f $ext, "$ProgID$ext")
+            Write-Verbose -Message ('Add-OpenWithProgID -FileType {0} -OpenWithProgid {1}{2}' -f $ext, $ProgID, $ext)
             Add-OpenWithProgID -FileType $ext -OpenWithProgid $ProgID$ext
         }
         
@@ -525,7 +524,7 @@ $CodeFileTypes = DATA {
   Get-Process -Name explorer* | Stop-Process
     #>
   #Start-Sleep -Seconds 1
-  "Opening Explorer to $HOME"
+  ('Opening Explorer to {0}' -f $HOME)
   Start-Sleep -Seconds 1
   & "$env:windir\explorer.exe" $HOME
 }
@@ -545,24 +544,24 @@ Function Initialize-Git {
     if (($null -ne $Path) -and (Test-Path -Path $Path -PathType Container)) {
         $gitdir = Resolve-Path -Path $Path
     } else {
-        Write-Warning -Message "Encountered error validating folder path $Path"
+        Write-Warning -Message ('Encountered error validating folder path {0}' -f $Path)
     }
 
     if (Get-Variable -Name gitdir -ErrorAction Ignore) {
         # Check and update $Env:PATH to include path to code; some code extensions look for code in the PATH
-        Write-Verbose -Message "Adding (git) $gitdir to `$Env:PATH"
+        Write-Verbose -Message ('Adding (git) {0} to $Env:PATH' -f $gitdir)
         # Send output from Add-EnvPath to Null, so we don't have to read $Env:Path in the console
         (Add-EnvPath -Path $gitdir) -split ';'
         $Env:GIT_DIR = $gitdir
 
-        Write-Warning -Message "Add-EnvPath -Path $gitdir may not have succeeded."
-        Write-Verbose -Message "`$Env:PATH += ;$gitdir"
+        Write-Warning -Message ('Add-EnvPath -Path {0} may not have succeeded.' -f $gitdir)
+        Write-Verbose -Message ('$Env:PATH += ;{0}' -f $gitdir)
         $Env:PATH += ";$gitdir"
 
         if ($Env:PATH -split ';' -contains $gitdir) {
             return $True # $gitdir
         } else {
-            Write-Warning -Message "Git directory $Path was not properly added to the PATH"
+            Write-Warning -Message ('Git directory {0} was not properly added to the PATH' -f $Path)
             return $false
         }
     } else {
@@ -627,8 +626,8 @@ function Open-PSEdit {
         Write-Verbose -Message '$Env:PSEdit -Like "*code*"; adding VS Code arguments'
         # Define 'default' Options, to pass to code
         $ArgsArray.Add('--skip-getting-started')
-        $ArgsArray.Add("--user-data-dir $(Join-Path -Path $HOME -Childpath 'vscode')")
-        $ArgsArray.Add("--extensions-dir $(Join-Path -Path $HOME -Childpath 'vscode\extensions')")
+        $ArgsArray.Add('--user-data-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode'))
+        $ArgsArray.Add('--extensions-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode\extensions'))
         # also add --reuse-window parameter, unless --new-window or it's alias -n were set in @args
         if (($ArgumentList -notcontains '--new-window') -and ($ArgumentList -notcontains '-n')) {
             $ArgsArray.Add('--reuse-window')
@@ -640,8 +639,8 @@ function Open-PSEdit {
 
     if ($Env:PSEdit -Like '*Microsoft VS Code*') {
         # If Code appears to be installed, as signalled by \Microsoft VS Code\ in it's path, then let it use default user-data-dir and extensions-dir
-        $ArgsArray.Remove("--user-data-dir $(Join-Path -Path $HOME -Childpath 'vscode')")
-        $ArgsArray.Remove("--extensions-dir $(Join-Path -Path $HOME -Childpath 'vscode\extensions')")
+        $ArgsArray.Remove(('--user-data-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode')))
+        $ArgsArray.Remove(('--extensions-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode\extensions')))
     }
 
     # While we're at it, double-check git is available via PATH, for use from within VS Code
@@ -653,29 +652,33 @@ function Open-PSEdit {
     #         [-p | --paginate | --no-pager] [--no-replace-objects] [--bare]
     #         [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
     #         <command> [<args>]
-    if ($Env:PATH -notlike '*GitPortable\cmd*') {
+    if ($Env:PATH -notlike '*Git*') {
+        # Locate $GitPath and add it to $Env:PATH
+        if (Get-Variable -Name GitPath -ErrorAction Ignore) {
+            if (Test-Path -Path $GitPath) {
+                Write-Verbose -Message "Initialize-Git -Path '$GitPath'"
+                Initialize-Git -Path "$GitPath"
+                # Derive .gitconfig path, then 'fix' the delimiter (swap from \ to /)
+                $GitConfigPath = $((Join-Path -Path $HOME -ChildPath 'vscode\.gitconfig') -replace '\\','/')
+                Write-Verbose -Message ('Setting $Env:GIT_CONFIG to {0}' -f $GitConfigPath)
+                $Env:GIT_CONFIG = $GitConfigPath
+                Write-Verbose -Message 'Setting $Env:GIT_CONFIG_NOSYSTEM = 1'
+                $Env:GIT_CONFIG_NOSYSTEM = '1'
+                Write-Verbose -Message '& git config credential.helper wincred'
+                & "$env:GIT_DIR\git.exe" config credential.helper wincred
 
-        if (Test-Path -Path $GitPath) {
-            Write-Verbose -Message "Initialize-Git -Path '$GitPath'"
-            Initialize-Git -Path "$GitPath"
-            # Derive .gitconfig path, then 'fix' the delimiter (swap from \ to /)
-            $GitConfigPath = $((Join-Path -Path $HOME -ChildPath 'vscode\.gitconfig') -replace '\\','/')
-            Write-Verbose -Message "Setting `$Env:GIT_CONFIG to $GitConfigPath"
-            $Env:GIT_CONFIG = $GitConfigPath
-            Write-Verbose -Message 'Setting $Env:GIT_CONFIG_NOSYSTEM = 1'
-            $Env:GIT_CONFIG_NOSYSTEM = '1'
-            Write-Verbose -Message '& git config credential.helper wincred'
-            & "$env:GIT_DIR\git.exe" config credential.helper wincred
-
-            Write-Verbose -Message '& git --version'
-            & "$env:GIT_DIR\git.exe" --version
-            if (!$?) {
-                Write-Warning -Message 'git --version returned an error, likely because git was not found in PATH. Suggest manually modifying PATH to support git before re-opening VS Code'
+                Write-Verbose -Message '& git --version'
+                & "$env:GIT_DIR\git.exe" --version
+                if (!$?) {
+                    Write-Warning -Message 'git --version returned an error, likely because git was not found in PATH. Suggest manually modifying PATH to support git before re-opening VS Code'
+                } else {
+                    Write-Verbose -Message "To review your git configuration(s), run 'git config --list --show-origin --path'"
+                }
             } else {
-                Write-Verbose -Message "To review your git configuration(s), run 'git config --list --show-origin --path'"
+                Write-Verbose -Message ('Failed to validate $GitPath: {0}' -f $GitPath)
             }
         } else {
-            Write-Verbose -Message "Failed to validate `$GitPath: $GitPath"
+            Write-Verbose -Message ('Variable $GitPath not defined.')
         }
     }
 
@@ -689,21 +692,19 @@ function Open-PSEdit {
             if ($token -notlike ' ') {
                 Write-Verbose -Message "Check `$token for spaces"
                 if (Test-Path -Path $token) {
-                    Write-Debug -Message "Wrapping  `$args token (path) $token with double quotes"
+                    Write-Debug -Message ('Wrapping $args token (path) {0} with double quotes' -f $token)
                     $token = """$token"""
                 } else {
-                    Write-Debug -Message "`$args token $token failed Test-Path, so NOT wrapping with double quotes"
+                    Write-Debug -Message ('$args token {0} failed Test-Path, so NOT wrapping with double quotes' -f $token)
                     $token = $token
                 }
-            # } else {
-            #     $token = $token
             }
-            Write-Verbose -Message "Adding $token to `$ArgsArray"
+            Write-Verbose -Message ('Adding {0} to $ArgsArray' -f $token)
             $ArgsArray.Add($token)
         }
-        Write-Verbose -Message "Results of processing `$args: $ArgsArray"
+        Write-Verbose -Message ('Results of processing $args: {0}' -f $ArgsArray)
     }
-    Write-Output -InputObject "Launching $Env:PSEdit $ArgsArray`n"
+    Write-Output -InputObject ('Launching {0} {1}' -f $Env:PSEdit, $ArgsArray)
     if ($ArgsArray) {
         # Pass non-null $ArgsArray to -ArgumentList
         Start-Process -NoNewWindow -FilePath $Env:PSEdit -ArgumentList $ArgsArray

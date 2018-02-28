@@ -1,3 +1,4 @@
+#!/usr/local/bin/pwsh
 #Requires -version 3
 # Update Module Manifest
 # move/rename source psd1 file
@@ -14,7 +15,7 @@ function Repair-ModuleManifest {
       .Link
       Edit-Module
   #>
-  [CmdletBinding(SupportsShouldProcess)]
+  [CmdletBinding()]
     param(
         [Parameter(Position = 0)]
         [ValidateScript({Test-Path -Path $PSItem})]
@@ -28,71 +29,54 @@ function Repair-ModuleManifest {
     $manifest = Test-ModuleManifest -Path $Path
   }
   catch {
-    throw "Failed to read properties from PowerShell Data file $Path"
+    throw ('Failed to read properties from PowerShell Data file {0}' -f $Path)
   }
 
   # Before working with any manifest properties, which include relative paths, move current location to the root of the manifest / module
-  Push-Location
-  Push-Location -Path (Split-Path -Path $Path -Parent) -PassThru
+  Push-Location -Path (Split-Path -Path $Path -Parent) #-PassThru
 
-    $NewProperties = @{}
     foreach ($property in $SupportedProperties) {
-        Write-Verbose -Message "Inspecting property $property"
+        Write-Verbose -Message ('Inspecting property {0}' -f $property)
         $ErrorActionPreference = 'Ignore'
         if ([bool]($manifest.$property)) {
-            Write-Verbose -Message "This property was $($manifest.$property)"
+            Write-Verbose -Message ('This property was {0}' -f $manifest.$property)
             if ($property -like '*List') {
-                $NewPropString += " -$property @(" + $(($manifest.$property | Resolve-Path -Relative) -join ',') + ')'
-                $NewProperties.Add("-$property",$($manifest.$property | Resolve-Path -Relative))
+                $NewPropString += (' -{0} @(' -f $property) + $(($manifest.$property | Resolve-Path -Relative) -join ',') + ')'
             } elseif ($($manifest.$property).Contains(' ')) {
-                Write-Debug -Message "Wrapping `$property value with quote-marks"
-                $NewPropString += " -$property '$($manifest.$property)'"
-                $NewProperties.Add("-$property",$manifest.$property)
+                Write-Debug -Message 'Wrapping $property value with quote-marks'
+                $NewPropString += (" -{0} '{1}'" -f $property, $manifest.$property)
             } else {
-                $NewPropString += " -$property $($manifest.$property)"
-                $NewProperties.Add("-$property",$manifest.$property)
+                $NewPropString += (' -{0} {1}' -f $property, $manifest.$property)
             }
         } else {
-            Write-Verbose -Message "Skipping unmatched / undefined $property"
+            Write-Verbose -Message ('Skipping unmatched / undefined {0}' -f $property)
         }
     }
 
-  Write-Debug -Message "`$NewPropString : $NewPropString"
+  Write-Debug -Message ('$NewPropString : {0}' -f $NewPropString)
   $ErrorActionPreference = 'Stop'
 
   if ($NewPropString -notlike '*-RootModule*') {
-    Write-Verbose -Message "Defining RootModule property; $RootModule"
-    Write-Debug -Message "Defining RootModule property; $RootModule"
+    Write-Verbose -Message ('Defining RootModule property; {0}' -f $RootModule)
+    Write-Debug -Message ('Defining RootModule property; {0}' -f $RootModule)
     $RootModule = (Split-Path -Path $Path -Leaf) -replace '.psd1', '.psm1'
-    $NewPropString += " -RootModule '$RootModule'"
-    $NewProperties.Add('-RootModule',$RootModule)
+    $NewPropString += (" -RootModule '{0}'" -f $RootModule)
   }
 
   if ($NewPropString -notlike '*-ModuleVersion*') {
-    Write-Verbose -Message "Defining new ModuleVersion"
-    Write-Debug -Message "Defining new ModuleVersion"
+    Write-Verbose -Message 'Defining new ModuleVersion'
     $NewPropString += ' -ModuleVersion 1.0.1'
-    $NewProperties.Add('-ModuleVersion','1.0.1')
   } else {
-    Write-Verbose -Message "Incrementing ModuleVersion"
-    Write-Debug -Message "Incrementing ModuleVersion"
-    Write-Verbose -Message ' -ModuleVersion {0}.{1}.{2}' -f [int]($manifest.Version.Major), [int]($manifest.Version.Minor), [int]($manifest.Version.Build+1)
-    Write-Debug -Message ' -ModuleVersion {0}.{1}.{2}' -f [int]($manifest.Version.Major), [int]($manifest.Version.Minor), [int]($manifest.Version.Build+1)
+    Write-Verbose -Message 'Incrementing ModuleVersion'
+    Write-Debug -Message (' -ModuleVersion {0}.{1}.{2}'-f [int]($manifest.Version.Major), [int]($manifest.Version.Minor), [int]($manifest.Version.Build+1))
     $NewPropString += ' -ModuleVersion {0}.{1}.{2}' -f [int]($manifest.Version.Major), [int]($manifest.Version.Minor), [int]($manifest.Version.Build+1)
-    $NewProperties.Add('-ModuleVersion','{0}.{1}.{2}' -f [int]($manifest.Version.Major), [int]($manifest.Version.Minor), [int]($manifest.Version.Build+1))
   }
     
-  Write-Verbose -Message $NewPropString -Verbose
   Write-Debug   -Message $NewPropString
 
-    $NewPropString
-
-  # New-ModuleManifest -Path $Path $NewProperties #$("{0}" -f $NewPropString) # -WhatIf 
-  Update-ModuleManifest -Path $Path $NewPropString -Confirm #$("{0}" -f $NewPropString) # -WhatIf 
+  Update-ModuleManifest -Path $Path $NewPropString
     
   Pop-Location
-  #-AliasesToExport $manifest.AliasesToExport -Author $manifest.Author -ClrVersion $manifest.ClrVersion -CmdletsToExport $manifest.CmdletsToExport -CompanyName $manifest.CompanyName -Copyright $manifest.Copyright -DefaultCommandPrefix $manifest.DefaultCommandPrefix -Description $manifest.Description -DotNetFrameworkVersion $manifest.DotNetFrameworkVersion -FileList $manifest.FileList -FormatsToProcess $manifest.FormatsToProcess -FunctionsToExport $manifest.FunctionsToExport -Guid $manifest.Guid -HelpInfoUri $manifest.HelpInfoUri -ModuleList $manifest.ModuleList -ModuleVersion $manifest.ModuleVersion -NestedModules $manifest.NestedModules -PowerShellHostVersion $manifest.PowerShellHostVersion -PowerShellVersion $manifest.PowerShellVersion -PrivateData $manifest.PrivateData -ProcessorArchitecture $manifest.ProcessorArchitecture -RequiredAssemblies $manifest.RequiredAssemblies -RequiredModules $manifest.RequiredModules -RootModule $manifest.RootModule -ScriptsToProcess $manifest.ScriptsToProcess -TypesToProcess $manifest.TypesToProcess -VariablesToExport $manifest.VariablesToExport
-
   <#
       New-ModuleManifest [-Path] <String>
       -AliasesToExport <String[]>

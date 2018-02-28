@@ -1,4 +1,4 @@
-#!/usr/local/bin/powershell
+#!/usr/local/bin/pwsh
 #Requires -Version 3
 #========================================
 # NAME      : Get-Function.psm1
@@ -9,7 +9,7 @@
 #========================================
 [CmdletBinding()]
 param ()
-Set-StrictMode -Version latest
+#Set-StrictMode -Version latest
 
 #Region MyScriptInfo
     Write-Verbose -Message '[Get-Function] Populating $MyScriptInfo'
