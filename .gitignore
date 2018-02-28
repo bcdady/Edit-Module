@@ -37,13 +37,11 @@ ClientBin/
 *.pfx
 *.publishsettings
 
-## KDiff cruft
+## Diff/Merge cruft
 *.orig
+*.bak
 
-#############
 ## Windows detritus
-#############
-
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
@@ -90,3 +88,4 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+Compare-Directory.ps1.bak
