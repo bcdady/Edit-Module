@@ -66,7 +66,7 @@ Param()
     Set the current PATH to the above.  WARNING- ERASES ORIGINAL PATH
     .NOTES
     NAME        :  Set-EnvPath
-    VERSION     :  1.0   
+    VERSION     :  1.0
     LAST UPDATED:  2/20/2015
     AUTHOR      :  Sean Kearney
     # Added 'Test-LocalAdmin' function written by Boe Prox to validate is PowerShell prompt is running in Elevated mode
@@ -76,7 +76,7 @@ Param()
     .LINK
     https://gallery.technet.microsoft.com/3aa9d51a-44af-4d2a-aa44-6ea541a9f721
     .LINK
-    Test-LocalAdmin 
+    Test-LocalAdmin
     .INPUTS
     None
     .OUTPUTS
@@ -89,7 +89,7 @@ Function Set-EnvPath {
     param (
         [parameter(Mandatory,
             Position = 0,
-            HelpMessage='Provide the explicit, complete, new PATH environment variable value.', 
+            HelpMessage='Provide the explicit, complete, new PATH environment variable value.',
             ValueFromPipeline
         )]
         [Alias('Path','Folder')]
@@ -120,7 +120,7 @@ Write-Verbose -Message 'Declaring [Global] Function Add-EnvPath'
 Function Add-EnvPath {
   [Cmdletbinding(SupportsShouldProcess)]
   param (
-    [parameter(Mandatory, 
+    [parameter(Mandatory,
         Position = 0,
         HelpMessage='Provide the new path value to add to the PATH environment variable.',
         ValueFromPipeline
@@ -171,7 +171,7 @@ Function Add-EnvPath {
     if ( $PSCmdlet.ShouldProcess($AddedFolder) ) {
       Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH -Value $NewPath
       # Show our results back to the world
-      Return $NewPath 
+      Return $NewPath
     }
   } else {
     # Set / override the Environment Path for this session via variable
@@ -189,10 +189,10 @@ Function Repair-EnvPath {
     $NewPath = $Env:Path.Split(';') | Sort-Object -Unique
 
     # Replace explicit paths with their Windows expandable variable, and store in a new variable
-    $NewPath = $NewPath -replace '\w:\\Program Files \(x86\)','%ProgramFiles(x86)%'
-    $NewPath = $NewPath -replace '\w:\\Program Files','%ProgramFiles%'
-    $NewPath = $NewPath -replace '\w:\\ProgramData','%ProgramData%'
-    $NewPath = $NewPath -replace '\w:\\Windows','%SystemRoot%'
+    #$NewPath = $NewPath -replace '\w:\\Program Files \(x86\)','%ProgramFiles(x86)%'
+    #$NewPath = $NewPath -replace '\w:\\Program Files','%ProgramFiles%'
+    #$NewPath = $NewPath -replace '\w:\\ProgramData','%ProgramData%'
+    #$NewPath = $NewPath -replace '\w:\\Windows','%SystemRoot%'
 
     # Remove any trailing \
     $NewPath = $NewPath -replace '(.+)\\$','$1'
@@ -229,7 +229,7 @@ Function Test-EnvPath {
     [Alias('SearchString','String')]
     [String]$Folder
     ,
-    [parameter( 
+    [parameter(
         Position = 1
     )]
     [Alias('Source')]
@@ -249,7 +249,7 @@ Function Test-EnvPath {
   } else {
     $Result = $False
   }
-        
+
   Return $Result
 }
 
@@ -257,7 +257,7 @@ Write-Verbose -Message 'Declaring [Global] Function Remove-EnvPath'
 Function Remove-EnvPath {
   [Cmdletbinding(SupportsShouldProcess)]
   param (
-    [parameter(Mandatory, 
+    [parameter(Mandatory,
         Position = 0,
         HelpMessage='Provide the path value to remove from the PATH environment variable.',
         ValueFromPipeline
@@ -270,7 +270,7 @@ Function Remove-EnvPath {
     Write-Warning -Message 'Required Administrator permissions not available.'
     Return $False
   }
-	
+
   # Get the Current Search Path from the Environment keys in the Registry
   $OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
 

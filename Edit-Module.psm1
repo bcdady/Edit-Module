@@ -312,7 +312,7 @@ Function Format-Path {
       Conditionally escapes spaces in file system paths with double-quotes
 
       .DESCRIPTION
-      Detects white space in the string of a file system path, and wraps the string with double-quotes if necessary
+      Detects white space in the string of a file system path, and wraps the string with double-quotes if necesarry
 
       .PARAMETER Path
       File system Path (string object) to be formatted
@@ -331,7 +331,7 @@ Function Format-Path {
     [cmdletbinding()]
     Param (
       [Parameter(Mandatory,
-        HelpMessage='Specify Path String to format (double-quote) if necessary.'
+        HelpMessage='Specify Path String to format (double-quote) if necesarry.'
       )]
       [String]$Path
     )

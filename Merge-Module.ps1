@@ -5,7 +5,7 @@
 # LANGUAGE  : PowerShell
 # AUTHOR    : Bryan Dady
 # UPDATED   : 02/27/2018
-# COMMENT   : PowerShell script to accelerate Repository maintenance / synchronization, such as between local 
+# COMMENT   : PowerShell script to accelerate Repository maintenance / synchronization
 # EXAMPLE   : PS .\> .\Merge-Module.ps1 -Path .\Modules\ProfilePal -Destination ..\GitHub\ProfilePal
 #========================================
 [CmdletBinding(SupportsShouldProcess)]
@@ -58,7 +58,7 @@ param ()
 
     $IsVerbose = $false
     if ('Verbose' -in $PSBoundParameters.Keys) {
-        Write-Verbose -Message 'Output Level is [Verbose]. $MyScriptInfo is:'
+        Write-Verbose -Message 'MyScriptInfo is:'
         $MyScriptInfo
         Set-Variable -Name IsVerbose -Value $true -Option AllScope
     }
@@ -66,7 +66,7 @@ param ()
 #End Region
 
 # Clean Up this script's Variables. When this script is loaded (dot-sourced), we clean up Merge-Module specific variables to ensure they're current when the next function is invoked
-('DiffSettings', 'DiffTool', 'DiffToolArgs', 'MergeEnvironmentSet') | ForEach-Object {
+('MergeSettings', 'MergeTool', 'MergeToolArgs', 'MergeEnvironmentSet') | ForEach-Object {
   # Cleanup any Private Scope residue
   if (Get-Variable -Name $PSItem -Scope Private -ErrorAction Ignore) {
     Write-Verbose -Message ('Remove-Variable $Private:{0}' -f $PSItem)
@@ -92,8 +92,7 @@ param ()
 
 # Declare shared variables, to be available across/between functions
 New-Variable -Name SettingsFileName -Description 'Path to Merge-Module settings file' -Value 'Merge-Module.json' -Scope Local -Option AllScope -Force
-New-Variable -Name DiffSettings -Description ('Settings, from {0}' -f $SettingsFileName) -Scope Local -Option AllScope -Force
-New-Variable -Name MergeEnvironmentSet -Description 'Boolean indicating custom environmental variables are loaded / available' -Value $false -Scope Local -Option AllScope -Force
+New-Variable -Name MergeSettings -Description ('Settings, from {0}' -f $SettingsFileName) -Scope Global -Option AllScope -Force
 
 $Private:CompareDirectory = Join-Path -Path $(Split-Path -Path $PSCommandPath -Parent) -ChildPath 'Compare-Directory.ps1' -ErrorAction Stop
 Write-Verbose -Message (' Dot-Sourcing {0}' -f $Private:CompareDirectory)
@@ -129,27 +128,27 @@ Function Import-MergeSettings {
     [switch]
     $ShowSettings
   )
-  
+
   Write-Debug -Message ('$DSPath = Join-Path -Path $(Split-Path -Path {0} -Parent) -ChildPath {1}' -f $PSCommandPath, $SettingsFileName)
-    
+
   $DSPath = Join-Path -Path $(Split-Path -Path $PSCommandPath -Parent) -ChildPath $SettingsFileName
-  Write-Debug -Message ('$DiffSettings = (Get-Content -Path {0} ) -join "`n" | ConvertFrom-Json' -f $DSPath)
+  Write-Debug -Message ('$MergeSettings = (Get-Content -Path {0} ) -join "`n" | ConvertFrom-Json' -f $DSPath)
 
   try {
-    $DiffSettings = (Get-Content -Path $DSPath) -join "`n" | ConvertFrom-Json -ErrorAction Stop
-    Write-Verbose -Message 'Settings imported to $DiffSettings.' 
+    $MergeSettings = (Get-Content -Path $DSPath) -join "`n" | ConvertFrom-Json -ErrorAction Stop
+    Write-Verbose -Message 'Settings imported to $MergeSettings.'
   }
   catch {
     throw ('[Import-MergeSettings]: Critical Error loading settings from from {0}' -f $DSPath)
   }
 
-  if ($DiffSettings) {
-    $DiffSettings | Add-Member -NotePropertyName imported -NotePropertyValue (Get-Date -UFormat '%m-%d-%Y') -Force
-    $DiffSettings | Add-Member -NotePropertyName SourcePath -NotePropertyValue $DSPath -Force
+  if ($MergeSettings) {
+    $MergeSettings | Add-Member -NotePropertyName imported -NotePropertyValue (Get-Date -UFormat '%m-%d-%Y') -Force
+    $MergeSettings | Add-Member -NotePropertyName SourcePath -NotePropertyValue $DSPath -Force
 
     if ($IsVerbose -or $ShowSettings) {
-      Write-Output -InputObject ' [Verbose] $DiffSettings:' | Out-Host
-      Write-Output -InputObject $DiffSettings | Format-List | Out-Host
+      Write-Output -InputObject ' [Verbose] $MergeSettings:' | Out-Host
+      Write-Output -InputObject $MergeSettings | Format-List | Out-Host
     }
   }
 
@@ -163,24 +162,20 @@ function Merge-Repository {
     [ValidateScript({Test-Path -Path $PSItem})]
     [Alias('SourcePath','A','file1')]
     [String]
-    $Path
-    ,
+    $Path,
     [Parameter(Mandatory,HelpMessage='Specify path to the target repository',Position = 1)]
     [ValidateScript({Test-Path -Path $PSItem -IsValid})]
     [Alias('TargetPath','B','file2')]
     [String]
-    $Destination
-    ,
+    $Destination,
     [Parameter(Position = 2)]
     [ValidateScript({Test-Path -Path $PSItem -IsValid})]
     [Alias('MergePath','C')]
     [String]
-    $file3 = $null
-    ,
+    $file3 = $null,
     [Parameter(Position = 3)]
     [switch]
-    $Recurse = $false
-    ,
+    $Recurse = $false,
     [Parameter(Position = 4)]
     [array]
     $Filter = $null
@@ -188,64 +183,47 @@ function Merge-Repository {
   # ======== SETUP ====================
 
   $ErrorActionPreference = 'SilentlyContinue'
-  if ($DiffSettings -and ($DiffSettings.imported)) {
-    Write-Verbose -Message '$DiffSettings instantiated.'
+  if ($MergeSettings -and ($MergeSettings.imported)) {
+    Write-Verbose -Message '$MergeSettings instantiated.'
   } else {
-    Write-Verbose -Message ('Reading configs from {0} to $DiffSettings' -f $SettingsFileName)
+    Write-Verbose -Message ('Reading configs from {0} to $MergeSettings' -f $SettingsFileName)
     Import-MergeSettings -ErrorAction Stop
   }
-  Write-Verbose -Message (' # $DiffSettings: {0}' -f $DiffSettings | Format-Table)
+
   $ErrorActionPreference = 'Continue'
-
-  <# - can be removed if successful after Module v 2.3.3
-      if (-not (Get-Variable -Name MergeEnvironmentSet -ErrorAction Ignore)) {
-        Write-Verbose -Message 'Load custom environment variables with Get-Environment function'
-        Get-Environment
-      }
-
-      if (Get-Variable -Name '*PSHome' -ValueOnly -ErrorAction Ignore) {
-      #Write-Output -InputObject 'My PowerShell Environment:'
-      if ('Verbose' -in $PSBoundParameters.Keys) {
-        Write-Verbose -Message 'Output Level is [Verbose]. "*PSHome" variables:'
-        Get-Variable -Name '*PSHome' | Format-Table
-      }
-      } else {
-      Write-Warning -Message 'Failed to enumerate My PowerShell Environment as should have been initialized by Get-Environment function'
-      }
-  #>
 
   if (Get-Variable -Name myPSLogPath -ValueOnly -ErrorAction Ignore) {
     Set-Variable -Name myPSLogPath -Value $HOME
   }
 
   # Build dynamic logging file path at ...\[My ]Documents\WindowsPowershell\log\[scriptname]-[rundate].log
-  $logFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -UFormat '%Y%m%d')))
+  $logFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -Format FileDate)))
   Write-Output -InputObject '' | Tee-Object -FilePath $logFile -Append
   Write-Verbose -Message (' # Logging to {0}' -f $logFile)
 
-  $RCLogFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-robocopy-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -UFormat '%Y%m%d')))
-    
+  $RCLogFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-robocopy-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -Format FileDate)))
+
   # Resolve path to diff / merge tool
-  Write-Verbose -Message ('Getting DiffTool.Path: {0}' -f $DiffSettings.DiffTool.Path)
-  $DiffTool = $ExecutionContext.InvokeCommand.ExpandString($DiffSettings.DiffTool.Path)
-    
-  if (Test-Path -Path $DiffTool -PathType Leaf) {
-    Write-Verbose -Message ('Using diff tool: {0}' -f $DiffTool)
+  Write-Verbose -Message ('Getting MergeTool.Path: {0}' -f $MergeSettings.MergeTool.Path)
+  $MergeTool = Resolve-Path -Path $ExecutionContext.InvokeCommand.ExpandString($MergeSettings.MergeTool.Path) -ErrorAction SilentlyContinue
+
+  if (Test-Path -Path $MergeTool -PathType Leaf) {
+    Write-Verbose -Message ('Using diff tool: {0}' -f $MergeTool)
   } else {
-    Write-Warning -Message ('Failed to resolve path to DiffTool (specified in Settings): {0}' -f $DiffTool)
+    Write-Warning -Message ('Failed to resolve path to MergeTool (specified in Settings): {0}' -f $MergeTool)
     break
   }
 
-  $DiffToolArgs = $DiffSettings.DiffTool.Options
+  $MergeOptions = $MergeSettings.MergeTool.Options
 
   if ($Recurse) {
-    $DiffToolArgs = "/r $DiffToolArgs"
+    $MergeOptions = "/r $MergeOptions"
   }
 
   # ======== BEGIN ====================
   Write-Verbose -Message ('{0} # Starting Merge-Repository -Path {1} -Destination {2} -file3 {3}' -f (Get-Date -Format g), $Path, $Destination, $file3) | Tee-Object -FilePath $logFile -Append
-    
-  Write-Debug -Message ('$DiffToolArgs: {0}' -f $DiffToolArgs) | Tee-Object -FilePath $logFile -Append
+
+  Write-Debug -Message ('$MergeOptions: {0}' -f $MergeOptions) | Tee-Object -FilePath $logFile -Append
   # $ErrorActionPreference = 'Stop'
   Write-Debug -Message ('Test-Path -Path: {0}' -f $Path)
   try {
@@ -271,14 +249,14 @@ function Merge-Repository {
   # To handle spaces in paths, without triggering ValidateScript errors against the functions defined parameters, we copy the function parameters to internal variables
   # file1 / 'A' = $SourcePath ; file2 / 'B' = $TargetPath ; file3 / 'C' = $MergePath
   $SourcePath = (Resolve-Path -Path $Path)
-  if ($SourcePath.ToString().Contains(' ')) {
+  if (($SourcePath) -and ($SourcePath.ToString().Contains(' '))) {
     Write-Debug -Message 'Wrapping $SourcePath with double-quotes'
     $SourcePath = ('"{0}"' -f $SourcePath.ToString())
   }
   Write-Debug -Message ('Resolved $SourcePath is: {0}' -f $SourcePath)
 
   $TargetPath = (Resolve-Path -Path $Destination -ErrorAction Ignore)
-  if ($TargetPath.ToString().Contains(' ')) {
+  if (($TargetPath) -and ($TargetPath.ToString().Contains(' '))) {
     Write-Debug -Message 'Wrapping $TargetPath with double-quotes'
     $TargetPath = ('"{0}"' -f $TargetPath.ToString())
   }
@@ -297,15 +275,15 @@ function Merge-Repository {
   # ======== PROCESS ==================
   #region Merge
   # Show what we're going to run on the console, then actually run it.
-  if ($DiffTool -and $SourcePath -and $TargetPath) {
+  if ($MergeTool -and $SourcePath -and $TargetPath) {
     if ($MergePath) {
       Write-Verbose -Message ('Detected MergePath : {0}' -f $MergePath)
-      Write-Verbose -Message ('{0} {1} {2} --output {3} {4}' -f $DiffTool, $SourcePath, $TargetPath, $MergePath, $DiffToolArgs)
+      Write-Verbose -Message ('{0} {1} {2} --output {3} {4}' -f $MergeTool, $SourcePath, $TargetPath, $MergePath, $MergeOptions)
 
-      if ($PSCmdlet.ShouldProcess($SourcePath,('Merge files with {0}' -f $DiffTool))) {
-        Write-Debug -Message ('[DEBUG] {0} -ArgumentList {1} {2} --output {3} {4}' -f $DiffTool, $SourcePath, $TargetPath, $MergePath, $DiffToolArgs)
+      if ($PSCmdlet.ShouldProcess($SourcePath,('Merge files with {0}' -f $MergeTool))) {
+        Write-Debug -Message ('[DEBUG] {0} -ArgumentList {1} {2} --output {3} {4}' -f $MergeTool, $SourcePath, $TargetPath, $MergePath, $MergeOptions)
         Write-Output -InputObject "Merging $SourcePath `n: $TargetPath -> $MergePath" | Out-File -FilePath $logFile -Append
-        Start-Process -FilePath $DiffTool -ArgumentList "$SourcePath $TargetPath $MergePath --output $MergePath $DiffToolArgs" -Wait | Tee-Object -FilePath $logFile -Append
+        Start-Process -FilePath $MergeTool -ArgumentList "$SourcePath $TargetPath $MergePath --output $MergePath $MergeOptions" -Wait | Tee-Object -FilePath $logFile -Append
       }
 
       # In a 3-way merge, kdiff3 only sync's with merged output file. So, after the merge is complete, we copy the final / merged output to the TargetPath directory.
@@ -325,14 +303,14 @@ function Merge-Repository {
       }
     } else {
       Write-Verbose -Message 'No MergePath; 2-way merge'
-      Write-Verbose -Message "$DiffTool $SourcePath $TargetPath $DiffToolArgs"
-      if ($PSCmdlet.ShouldProcess($SourcePath,('Merge files with {0}' -f $DiffTool))) {
+      Write-Verbose -Message "$MergeTool $SourcePath $TargetPath $MergeOptions"
+      if ($PSCmdlet.ShouldProcess($SourcePath,('Merge files with {0}' -f $MergeTool))) {
         Write-Output -InputObject "Merging $SourcePath <-> $TargetPath" | Out-File -FilePath $logFile -Append
-        Start-Process -FilePath $DiffTool -ArgumentList "$SourcePath $TargetPath $DiffToolArgs" -Wait
+        Start-Process -FilePath $MergeTool -ArgumentList "$MergeOptions $SourcePath $TargetPath" -Wait
       }
     }
   } else {
-    throw 'No $DiffTool -or $SourcePath -or $TargetPath'
+    throw 'No $MergeTool -or $SourcePath -or $TargetPath'
   }
   #EndRegion
 
@@ -385,25 +363,20 @@ function Update-Repository {
     [String]
     $Destination
   )
-    
-  if (-not [bool](Get-Variable -Name DiffSettings -ErrorAction Ignore)) {
+
+  if (-not [bool](Get-Variable -Name MergeSettings -ErrorAction Ignore)) {
     Write-Verbose -Message ('Reading configs from {0}' -f $SettingsFileName)
     Import-MergeSettings
   }
 
-  if (-not [bool](Get-Variable -Name MergeEnvironmentSet -ErrorAction Ignore)) {
-    Write-Verbose -Message 'Load custom environmental variables with Get-Environment function'
-    Get-Environment
-  }
-
   # Specifying the logFile name now explicitly updates the datestamp on the log file
-  $logFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -UFormat '%Y%m%d')))
+  $logFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -Format FileDate)))
   Write-Output -InputObject '' | Tee-Object -FilePath $logFile -Append
   Write-Output -InputObject ('logging to {0}' -f $logFile)
   Write-Output -InputObject "$(Get-Date -Format g) # Starting Update-Repository" | Tee-Object -FilePath $logFile -Append
-    
+
   # robocopy.exe writes wierd characters, if/when we let it share, so robocopy gets it's own log file
-  $RCLogFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-robocopy-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -UFormat '%Y%m%d')))
+  $RCLogFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-robocopy-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -Format FileDate)))
 
   Write-Verbose -Message ('[Update-Repository] Robocopying {0} from {1} to {2}, and logging to {3}' -f $Name, $Path, $Destination, $RCLogFile) | Tee-Object -FilePath $logFile -Append
   Write-Debug -Message ('robocopy.exe "{1}" "{2}" /MIR /TEE /LOG+:"{3}" /IPG:777 /R:1 /W:1 /NP /TS /FP /DCOPY:T /DST /XD .git /XF .gitattributes /NJH' -f $Name, $Path, $Destination, $RCLogFile) #| Tee-Object -FilePath $logFile -Append
