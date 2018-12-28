@@ -94,9 +94,9 @@ param ()
 New-Variable -Name SettingsFileName -Description 'Path to Merge-Module settings file' -Value 'Merge-Module.json' -Scope Local -Option AllScope -Force
 New-Variable -Name MergeSettings -Description ('Settings, from {0}' -f $SettingsFileName) -Scope Global -Option AllScope -Force
 
-$Private:CompareDirectory = Join-Path -Path $(Split-Path -Path $PSCommandPath -Parent) -ChildPath 'Compare-Directory.ps1' -ErrorAction Stop
-Write-Verbose -Message (' Dot-Sourcing {0}' -f $Private:CompareDirectory)
-. $Private:CompareDirectory
+#$Private:CompareDirectory = Join-Path -Path $(Split-Path -Path $PSCommandPath -Parent) -ChildPath 'Compare-Directory.ps1' -ErrorAction Stop
+#Write-Verbose -Message (' Dot-Sourcing {0}' -f $Private:CompareDirectory)
+#. $Private:CompareDirectory
 
 # Get Merge-Module config from Merge-Module.json
 Write-Verbose -Message 'Declaring Function Import-MergeSettings'
@@ -129,22 +129,25 @@ Function Import-MergeSettings {
     $ShowSettings
   )
 
-  Write-Debug -Message ('$DSPath = Join-Path -Path $(Split-Path -Path {0} -Parent) -ChildPath {1}' -f $PSCommandPath, $SettingsFileName)
+  Write-Verbose -Message ('$SettingsPath = Join-Path -Path $(Split-Path -Path $PSCommandPath -Parent) -ChildPath $SettingsFileName' -f $PSCommandPath, $SettingsFileName)
+  Write-Verbose -Message ('$PSCommandPath: {0}' -f $PSCommandPath)
+  Write-Verbose -Message ('$SettingsFileName: {0}' -f $SettingsFileName)
+  Write-Verbose -Message ('$SettingsPath = {0} ' -f $(Join-Path -Path (Split-Path -Path $PSCommandPath -Parent) -ChildPath $SettingsFileName))
 
-  $DSPath = Join-Path -Path $(Split-Path -Path $PSCommandPath -Parent) -ChildPath $SettingsFileName
-  Write-Debug -Message ('$MergeSettings = (Get-Content -Path {0} ) -join "`n" | ConvertFrom-Json' -f $DSPath)
+  $SettingsPath = ('{0}' -f (Join-Path -Path $(Split-Path -Path $PSCommandPath -Parent) -ChildPath $SettingsFileName))
+  Write-Verbose -Message ('$MergeSettings = (Get-Content -Path {0} ) -join "`n" | ConvertFrom-Json' -f $SettingsPath)
 
   try {
-    $MergeSettings = (Get-Content -Path $DSPath) -join "`n" | ConvertFrom-Json -ErrorAction Stop
+    $MergeSettings = (Get-Content -Path $SettingsPath) -join "`n" | ConvertFrom-Json -ErrorAction Stop
     Write-Verbose -Message 'Settings imported to $MergeSettings.'
   }
   catch {
-    throw ('[Import-MergeSettings]: Critical Error loading settings from from {0}' -f $DSPath)
+    throw ('[Import-MergeSettings]: Critical Error loading settings from from {0}' -f $SettingsPath)
   }
 
   if ($MergeSettings) {
     $MergeSettings | Add-Member -NotePropertyName imported -NotePropertyValue (Get-Date -UFormat '%m-%d-%Y') -Force
-    $MergeSettings | Add-Member -NotePropertyName SourcePath -NotePropertyValue $DSPath -Force
+    $MergeSettings | Add-Member -NotePropertyName SourcePath -NotePropertyValue $SettingsPath -Force
 
     if ($IsVerbose -or $ShowSettings) {
       Write-Output -InputObject ' [Verbose] $MergeSettings:' | Out-Host
@@ -223,9 +226,9 @@ function Merge-Repository {
   # ======== BEGIN ====================
   Write-Verbose -Message ('{0} # Starting Merge-Repository -Path {1} -Destination {2} -file3 {3}' -f (Get-Date -Format g), $Path, $Destination, $file3) | Tee-Object -FilePath $logFile -Append
 
-  Write-Debug -Message ('$MergeOptions: {0}' -f $MergeOptions) | Tee-Object -FilePath $logFile -Append
+  Write-Verbose -Message ('$MergeOptions: {0}' -f $MergeOptions) | Tee-Object -FilePath $logFile -Append
   # $ErrorActionPreference = 'Stop'
-  Write-Debug -Message ('Test-Path -Path: {0}' -f $Path)
+  Write-Verbose -Message ('Test-Path -Path: {0}' -f $Path)
   try {
     $null = Test-Path -Path (Resolve-Path -Path $Path)
   }
@@ -236,7 +239,7 @@ function Merge-Repository {
     Write-Output -InputObject 'file1 (A) not found; nothing to merge.' | Tee-Object -FilePath $logFile -Append
   }
 
-  Write-Debug -Message ('Test-Path -Path (Destination): {0}' -f $Destination)
+  Write-Verbose -Message ('Test-Path -Path (Destination): {0}' -f $Destination)
   try {
     $null = Test-Path -Path (Resolve-Path -Path $Destination -ErrorAction Ignore)
   }
@@ -250,26 +253,26 @@ function Merge-Repository {
   # file1 / 'A' = $SourcePath ; file2 / 'B' = $TargetPath ; file3 / 'C' = $MergePath
   $SourcePath = (Resolve-Path -Path $Path)
   if (($SourcePath) -and ($SourcePath.ToString().Contains(' '))) {
-    Write-Debug -Message 'Wrapping $SourcePath with double-quotes'
+    Write-Verbose -Message 'Wrapping $SourcePath with double-quotes'
     $SourcePath = ('"{0}"' -f $SourcePath.ToString())
   }
-  Write-Debug -Message ('Resolved $SourcePath is: {0}' -f $SourcePath)
+  Write-Verbose -Message ('Resolved $SourcePath is: {0}' -f $SourcePath)
 
   $TargetPath = (Resolve-Path -Path $Destination -ErrorAction Ignore)
   if (($TargetPath) -and ($TargetPath.ToString().Contains(' '))) {
-    Write-Debug -Message 'Wrapping $TargetPath with double-quotes'
+    Write-Verbose -Message 'Wrapping $TargetPath with double-quotes'
     $TargetPath = ('"{0}"' -f $TargetPath.ToString())
   }
-  Write-Debug -Message ('Resolved $TargetPath is: {0}' -f $TargetPath)
+  Write-Verbose -Message ('Resolved $TargetPath is: {0}' -f $TargetPath)
 
   $MergePath = $false
   if ($file3) {
     $MergePath = (Resolve-Path -Path $file3)
     if ($MergePath.ToString().Contains(' ')) {
-      Write-Debug -Message 'Wrapping `$MergePath with double-quotes'
+      Write-Verbose -Message 'Wrapping `$MergePath with double-quotes'
       $MergePath = ('"{0}"' -f $MergePath.ToString())
     }
-    Write-Debug -Message ('Resolved $MergePath is: {0}' -f $MergePath)
+    Write-Verbose -Message ('Resolved $MergePath is: {0}' -f $MergePath)
   }
 
   # ======== PROCESS ==================
@@ -281,7 +284,7 @@ function Merge-Repository {
       Write-Verbose -Message ('{0} {1} {2} --output {3} {4}' -f $MergeTool, $SourcePath, $TargetPath, $MergePath, $MergeOptions)
 
       if ($PSCmdlet.ShouldProcess($SourcePath,('Merge files with {0}' -f $MergeTool))) {
-        Write-Debug -Message ('[DEBUG] {0} -ArgumentList {1} {2} --output {3} {4}' -f $MergeTool, $SourcePath, $TargetPath, $MergePath, $MergeOptions)
+        Write-Verbose -Message ('[DEBUG] {0} -ArgumentList {1} {2} --output {3} {4}' -f $MergeTool, $SourcePath, $TargetPath, $MergePath, $MergeOptions)
         Write-Output -InputObject "Merging $SourcePath `n: $TargetPath -> $MergePath" | Out-File -FilePath $logFile -Append
         Start-Process -FilePath $MergeTool -ArgumentList "$SourcePath $TargetPath $MergePath --output $MergePath $MergeOptions" -Wait | Tee-Object -FilePath $logFile -Append
       }
@@ -379,7 +382,7 @@ function Update-Repository {
   $RCLogFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-robocopy-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -Format FileDate)))
 
   Write-Verbose -Message ('[Update-Repository] Robocopying {0} from {1} to {2}, and logging to {3}' -f $Name, $Path, $Destination, $RCLogFile) | Tee-Object -FilePath $logFile -Append
-  Write-Debug -Message ('robocopy.exe "{1}" "{2}" /MIR /TEE /LOG+:"{3}" /IPG:777 /R:1 /W:1 /NP /TS /FP /DCOPY:T /DST /XD .git /XF .gitattributes /NJH' -f $Name, $Path, $Destination, $RCLogFile) #| Tee-Object -FilePath $logFile -Append
+  Write-Verbose -Message ('robocopy.exe "{1}" "{2}" /MIR /TEE /LOG+:"{3}" /IPG:777 /R:1 /W:1 /NP /TS /FP /DCOPY:T /DST /XD .git /XF .gitattributes /NJH' -f $Name, $Path, $Destination, $RCLogFile) #| Tee-Object -FilePath $logFile -Append
 
   Start-Process -FilePath "$env:windir\system32\robocopy.exe" -ArgumentList ('"{1}" "{2}" /MIR /TEE /LOG+:"{3}" /IPG:777 /R:1 /W:1 /NP /TS /FP /DCOPY:T /DST /XD .git /XF .gitattributes /NJH' -f $Name, $Path, $Destination, $RCLogFile) -Wait -Verb open
 

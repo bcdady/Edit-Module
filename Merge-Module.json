@@ -11,7 +11,7 @@
         },
     "MergeTool": {
         "Name": "WinMerge",
-        "Path": "$myPSModulesPath\\ISESteroids\\3rdParty\\WinMerge\\App\\WinMerge\\WinMergeU.exe",
+        "Path": "$Env:USERPROFILE\OneDrive\Software\Win\PortableApps\WinMergePortable\WinMergePortable.exe",
         "Help_URL": "http://manual.winmerge.org/Command_line.html",
         "Options": "/e /xq /s"
         }

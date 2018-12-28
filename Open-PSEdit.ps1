@@ -367,7 +367,7 @@ Function Add-VSCFileTypeAssociation {
             Write-Verbose -Message ('OpenWithProgid {0} already set in the registry for FTA: {1}' -f $OpenWithProgid, $ProgID_FTA)
         } else {
             Write-Verbose -Message ('Adding OpenWithProgid {0} for FTA: {1}' -f $OpenWithProgid, $ProgID_FTA)
-            Write-Debug -Message ('New-Item -Path HKCU:\SOFTWARE\Classes\{0}\OpenWithProgids\{1} = ' -f $ProgID_FTA, $OpenWithProgid)
+            Write-Verbose -Message ('New-Item -Path HKCU:\SOFTWARE\Classes\{0}\OpenWithProgids\{1} = ' -f $ProgID_FTA, $OpenWithProgid)
             $null = New-Item -Path ('HKCU:\SOFTWARE\Classes\{0}\OpenWithProgids' -f $FileType) -Force -ErrorAction SilentlyContinue
             $null = New-ItemProperty -Path ('HKCU:\SOFTWARE\Classes\{0}\OpenWithProgids' -f $FileType) -Name $OpenWithProgid -Force -ErrorAction SilentlyContinue
         }
@@ -634,19 +634,19 @@ function Open-PSEdit {
     }
 
     # Make sure we've got a usable path to PSEdit before proceeding
-    Test-Path -Path $Env:PSEdit -PathType Leaf -ErrorAction Stop
+    Test-Path -Path $Env:PSEdit -PathType Leaf -ErrorAction Stop | Out-Null
 
     $ArgsArray = New-Object -TypeName System.Collections.ArrayList
 
     if ($Env:PSEdit -Like '*\code*') {
         Write-Verbose -Message '$Env:PSEdit -Like "*code*"; adding VS Code arguments'
         # Define 'default' Options, to pass to code
-        $ArgsArray.Add('--skip-getting-started')
-        $ArgsArray.Add('--user-data-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode'))
-        $ArgsArray.Add('--extensions-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode\extensions'))
+        $null = $ArgsArray.Add('--skip-getting-started')
+        $null = $ArgsArray.Add('--user-data-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode'))
+        $null = $ArgsArray.Add('--extensions-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode\extensions'))
         # also add --reuse-window parameter, unless --new-window or it's alias -n were set in @args
         if (($ArgumentList -notcontains '--new-window') -and ($ArgumentList -notcontains '-n')) {
-            $ArgsArray.Add('--reuse-window')
+            $null = $ArgsArray.Add('--reuse-window')
         }
     <#  if (-not (Test-FileTypeAssociation)) {
             Add-FileTypeAssociation -ProgID 'vscode' -CommandPath $Env:PSEdit
@@ -705,18 +705,18 @@ function Open-PSEdit {
             Write-Verbose -Message ('Processing $args token ''{0}''' -f $token)
             # TODO Enhance Advanced function with parameter validation to match code.cmd / code.exe
             # Check for unescaped spaces in file path arguments
-            if ($token -notlike ' ') {
-                Write-Verbose -Message "Check `$token for spaces"
+            if ($token -like ' ') {
+                Write-Verbose -Message 'Check $token for spaces'
                 if (Test-Path -Path $token) {
-                    Write-Debug -Message ('Wrapping $args token (path) {0} with double quotes' -f $token)
+                    Write-Verbose -Message ('Wrapping $args token (path) {0} with double quotes' -f $token)
                     $token = """$token"""
                 } else {
-                    Write-Debug -Message ('$args token {0} failed Test-Path, so NOT wrapping with double quotes' -f $token)
+                    Write-Verbose -Message ('$args token {0} failed Test-Path, so NOT wrapping with double quotes' -f $token)
                     $token = $token
                 }
             }
             Write-Verbose -Message ('Adding {0} to $ArgsArray' -f $token)
-            $ArgsArray.Add($token)
+            $null = $ArgsArray.Add($token)
         }
         Write-Verbose -Message ('Results of processing $args: {0}' -f $ArgsArray)
     }
