@@ -43,11 +43,12 @@ if (Get-Variable -Name myPSModulesPath -ValueOnly -ErrorAction Ignore) {
         Write-Verbose -Message ('$installAllUsers is {0}' -f $installAllUsers)
     } else {
         # confirm expected shared modules path exists
-        if ('/usr/local/share/powershell/Modules' -in @($Env:PSModulePath -split ':')) {
-            $private:ModulesPath = "~/.local/share/powershell/Modules/"
+        if (Test-Path -Path Variable:/myPSModulesPath) {
+            # Get defined module path
+            $private:ModulesPath = $myPSModulesPath
         } else {
-            Write-Warning -InputObject 'Failed to determine appropriate module destination directory'
-            exit
+            # use what should be the default
+            $private:ModulesPath = "~/.local/share/powershell/Modules/"
         }
     }
 }

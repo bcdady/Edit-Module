@@ -4,11 +4,11 @@
 # NAME      : Merge-Module.ps1, part of PowerShell Module 'Edit-Module'
 # LANGUAGE  : PowerShell
 # AUTHOR    : Bryan Dady
-# UPDATED   : 02/27/2018
+# UPDATED   : 12/12/2018
 # COMMENT   : PowerShell script to accelerate Repository maintenance / synchronization
 # EXAMPLE   : PS .\> .\Merge-Module.ps1 -Path .\Modules\ProfilePal -Destination ..\GitHub\ProfilePal
 #========================================
-[CmdletBinding(SupportsShouldProcess)]
+[CmdletBinding()]
 param ()
 #Set-StrictMode -Version latest
 
@@ -30,15 +30,19 @@ param ()
         $Private:CallStack        = Get-PSCallStack | Select-Object -First 1
         $Private:MyScriptName     = $Private:CallStack.ScriptName
         $Private:MyCommand        = $Private:CallStack.Command
+        Remove-Variable -Name CallStack -Force -Scope Private
         Write-Verbose -Message ('$ScriptName: {0}' -f $Private:MyScriptName)
         Write-Verbose -Message ('$Command: {0}' -f $Private:MyCommand)
         Write-Verbose -Message 'Assigning previously null MyCommand variables with CallStack values'
         $Private:MyCommandPath    = $Private:MyScriptName
         $Private:MyCommandName    = $Private:MyCommand
+        Remove-Variable -Name CallStack -Force -Scope Private
+        Remove-Variable -Name MyScriptName -Force -Scope Private
+        Remove-Variable -Name MyCommand -Force -Scope Private
     }
 
     #'Optimize New-Object invocation, based on Don Jones' recommendation: https://technet.microsoft.com/en-us/magazine/hh750381.aspx
-    $Private:properties = [ordered]@{
+    $Private:properties = [Ordered]@{
         'CommandName'        = $Private:MyCommandName
         'CommandPath'        = $Private:MyCommandPath
         'CommandType'        = $Private:MyCommandType
@@ -51,9 +55,10 @@ param ()
     }
     # $Script:MyScriptInfo = New-Object -TypeName PSObject -Property $Private:properties
     New-Variable -Name MyScriptInfo -Value (New-Object -TypeName PSObject -Property $Private:properties) -Scope Local -Option AllScope -Force
+
     # Cleanup
     foreach ($var in $Private:properties.Keys) {
-        Remove-Variable -Name ('My{0}' -f $var) -Force
+        Remove-Variable -Name ('My{0}' -f $var) -Force -Scope Private
     }
 
     $IsVerbose = $false
@@ -68,21 +73,21 @@ param ()
 # Clean Up this script's Variables. When this script is loaded (dot-sourced), we clean up Merge-Module specific variables to ensure they're current when the next function is invoked
 ('MergeSettings', 'MergeTool', 'MergeToolArgs', 'MergeEnvironmentSet') | ForEach-Object {
   # Cleanup any Private Scope residue
-  if (Get-Variable -Name $PSItem -Scope Private -ErrorAction Ignore) {
+  if (Get-Variable -Name $PSItem -Scope Private -ErrorAction SilentlyContinue) {
     Write-Verbose -Message ('Remove-Variable $Private:{0}' -f $PSItem)
     Remove-Variable -Name $PSItem -Scope Private
   } else {
     Write-Verbose -Message ('Variable $Private:{0} not found.' -f $PSItem)
   }
   # Cleanup any Local Scope residue
-  if (Get-Variable -Name $PSItem -Scope Local -ErrorAction Ignore) {
+  if (Get-Variable -Name $PSItem -Scope Local -ErrorAction SilentlyContinue) {
     Write-Verbose -Message ('Remove-Variable $Local:{0}' -f $PSItem)
     Remove-Variable -Name $PSItem -Scope Local
   } else {
     Write-Verbose -Message ('Variable $Local:{0} not found.' -f $PSItem)
   }
   # Cleanup any Script Scope residue
-  if (Get-Variable -Name $PSItem -Scope Script -ErrorAction Ignore) {
+  if (Get-Variable -Name $PSItem -Scope Script -ErrorAction SilentlyContinue) {
     Write-Verbose -Message ('Remove-Variable $Script:{0}' -f $PSItem)
     Remove-Variable -Name $PSItem -Scope Script
   } else {
@@ -93,11 +98,11 @@ param ()
 # Declare shared variables, to be available across/between functions
 New-Variable -Name SettingsFileName -Description 'Path to Merge-Module settings file' -Value 'Merge-Module.json' -Scope Local -Option AllScope -Force
 New-Variable -Name MergeSettings -Description ('Settings, from {0}' -f $SettingsFileName) -Scope Global -Option AllScope -Force
-
-#$Private:CompareDirectory = Join-Path -Path $(Split-Path -Path $PSCommandPath -Parent) -ChildPath 'Compare-Directory.ps1' -ErrorAction Stop
-#Write-Verbose -Message (' Dot-Sourcing {0}' -f $Private:CompareDirectory)
-#. $Private:CompareDirectory
-
+<#
+    $Private:CompareDirectory = Join-Path -Path $(Split-Path -Path $Path -Parent) -ChildPath 'Compare-Directory.ps1' -ErrorAction Stop
+    Write-Verbose -Message (' Dot-Sourcing {0}' -f $Private:CompareDirectory)
+    . $Private:CompareDirectory
+#>
 # Get Merge-Module config from Merge-Module.json
 Write-Verbose -Message 'Declaring Function Import-MergeSettings'
 Function Import-MergeSettings {
@@ -124,6 +129,11 @@ Function Import-MergeSettings {
   #>
   [CmdletBinding()]
   param(
+    [Parameter(Position = 0)]
+    [ValidateScript({Test-Path -Path $_ -PathType Container})]
+    [String]
+    $Path = (Get-Module -Name Edit-Module | Select-Object -Property ModuleBase).ModuleBase
+    ,
     [Parameter(Position = 1)]
     [switch]
     $ShowSettings
@@ -159,7 +169,7 @@ Function Import-MergeSettings {
 
 Write-Verbose -Message 'Declaring Function Merge-Repository'
 function Merge-Repository {
-  [CmdletBinding(SupportsShouldProcess)]
+  [CmdletBinding()]
   Param(
     [Parameter(Mandatory,HelpMessage='Specify path to the source repository',Position = 0)]
     [ValidateScript({Test-Path -Path $PSItem})]
@@ -195,13 +205,13 @@ function Merge-Repository {
 
   $ErrorActionPreference = 'Continue'
 
-  if (Get-Variable -Name myPSLogPath -ValueOnly -ErrorAction Ignore) {
+  if (Get-Variable -Name myPSLogPath -ValueOnly -ErrorAction SilentlyContinue) {
     Set-Variable -Name myPSLogPath -Value $HOME
   }
 
   # Build dynamic logging file path at ...\[My ]Documents\WindowsPowershell\log\[scriptname]-[rundate].log
   $logFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -Format FileDate)))
-  Write-Output -InputObject '' | Tee-Object -FilePath $logFile -Append
+  Write-Output -InputObject '' #| Tee-Object -FilePath $logFile -Append
   Write-Verbose -Message (' # Logging to {0}' -f $logFile)
 
   $RCLogFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-robocopy-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -Format FileDate)))
@@ -224,29 +234,29 @@ function Merge-Repository {
   }
 
   # ======== BEGIN ====================
-  Write-Verbose -Message ('{0} # Starting Merge-Repository -Path {1} -Destination {2} -file3 {3}' -f (Get-Date -Format g), $Path, $Destination, $file3) | Tee-Object -FilePath $logFile -Append
+  Write-Verbose -Message ('{0} # Starting Merge-Repository -Path {1} -Destination {2} -file3 {3}' -f (Get-Date -Format g), $Path, $Destination, $file3) # | Tee-Object -FilePath $logFile -Append
 
-  Write-Verbose -Message ('$MergeOptions: {0}' -f $MergeOptions) | Tee-Object -FilePath $logFile -Append
+  Write-Verbose -Message ('$MergeOptions: {0}' -f $MergeOptions) # | Tee-Object -FilePath $logFile -Append
   # $ErrorActionPreference = 'Stop'
   Write-Verbose -Message ('Test-Path -Path: {0}' -f $Path)
   try {
     $null = Test-Path -Path (Resolve-Path -Path $Path)
   }
   catch {
-    Write-Output -InputObject ('Error was {0}' -f $_) | Tee-Object -FilePath $logFile -Append
-    $line = $MyInvocation.ScriptLineNumber | Tee-Object -FilePath $logFile -Append
-    Write-Output -InputObject ('Error was in Line {0}' -f $line) | Tee-Object -FilePath $logFile -Append
-    Write-Output -InputObject 'file1 (A) not found; nothing to merge.' | Tee-Object -FilePath $logFile -Append
+    Write-Output -InputObject ('Error was {0}' -f $_) # | Tee-Object -FilePath $logFile -Append
+    $line = $MyInvocation.ScriptLineNumber # | Tee-Object -FilePath $logFile -Append
+    Write-Output -InputObject ('Error was in Line {0}' -f $line) # | Tee-Object -FilePath $logFile -Append
+    Write-Output -InputObject 'file1 (A) not found; nothing to merge.' # | Tee-Object -FilePath $logFile -Append
   }
 
   Write-Verbose -Message ('Test-Path -Path (Destination): {0}' -f $Destination)
   try {
-    $null = Test-Path -Path (Resolve-Path -Path $Destination -ErrorAction Ignore)
+    $null = Test-Path -Path (Resolve-Path -Path $Destination -ErrorAction SilentlyContinue)
   }
   catch {
-    Write-Warning -Message $PSItem | Tee-Object -FilePath $logFile -Append
-    Write-Output -InputObject 'Destination Path not found, so nothing to merge; copying Path contents to Destination.' | Tee-Object -FilePath $logFile -Append
-    Copy-Item -Path $Path -Destination $Destination -Recurse -Confirm | Tee-Object -FilePath $logFile -Append
+    Write-Warning -Message $_ # | Tee-Object -FilePath $logFile -Append
+    Write-Output -InputObject 'Destination Path not found, so nothing to merge; copying Path contents to Destination.' # | Tee-Object -FilePath $logFile -Append
+    Copy-Item -Path $Path -Destination $Destination -Recurse -Confirm # | Tee-Object -FilePath $logFile -Append
   }
 
   # To handle spaces in paths, without triggering ValidateScript errors against the functions defined parameters, we copy the function parameters to internal variables
@@ -258,7 +268,7 @@ function Merge-Repository {
   }
   Write-Verbose -Message ('Resolved $SourcePath is: {0}' -f $SourcePath)
 
-  $TargetPath = (Resolve-Path -Path $Destination -ErrorAction Ignore)
+  $TargetPath = (Resolve-Path -Path $Destination -ErrorAction SilentlyContinue)
   if (($TargetPath) -and ($TargetPath.ToString().Contains(' '))) {
     Write-Verbose -Message 'Wrapping $TargetPath with double-quotes'
     $TargetPath = ('"{0}"' -f $TargetPath.ToString())
@@ -286,7 +296,7 @@ function Merge-Repository {
       if ($PSCmdlet.ShouldProcess($SourcePath,('Merge files with {0}' -f $MergeTool))) {
         Write-Verbose -Message ('[DEBUG] {0} -ArgumentList {1} {2} --output {3} {4}' -f $MergeTool, $SourcePath, $TargetPath, $MergePath, $MergeOptions)
         Write-Output -InputObject "Merging $SourcePath `n: $TargetPath -> $MergePath" | Out-File -FilePath $logFile -Append
-        Start-Process -FilePath $MergeTool -ArgumentList "$SourcePath $TargetPath $MergePath --output $MergePath $MergeOptions" -Wait | Tee-Object -FilePath $logFile -Append
+        Start-Process -FilePath $MergeTool -ArgumentList "$SourcePath $TargetPath $MergePath --output $MergePath $MergeOptions" -Wait # | Tee-Object -FilePath $logFile -Append
       }
 
       # In a 3-way merge, kdiff3 only sync's with merged output file. So, after the merge is complete, we copy the final / merged output to the TargetPath directory.
@@ -295,13 +305,13 @@ function Merge-Repository {
       Copy-Item -Path $MergePath -Destination $(Split-Path -Path $Destination) -Recurse -Confirm
 
       if ($PSCmdlet.ShouldProcess($MergePath,'Update via Robocopy')) {
-        Write-Output -InputObject ('[Merge-Repository] Update {0} back to {1} (using Robocopy)' -f $MergePath, (Split-Path -Path $Destination)) | Tee-Object -FilePath $logFile -Append
+        Write-Output -InputObject ('[Merge-Repository] Update {0} back to {1} (using Robocopy)' -f $MergePath, (Split-Path -Path $Destination)) # | Tee-Object -FilePath $logFile -Append
         if ($null = Test-Path -Path $Destination -PathType Leaf) {
           $rcTarget = $(Split-Path -Path $Destination)
         } else {
           $rcTarget = $TargetPath
         }
-        Write-Output -InputObject ('[Merge-Repository] Updating container from {1} to {2}' -f $MergePath, $rcTarget) | Tee-Object -FilePath $logFile -Append
+        Write-Output -InputObject ('[Merge-Repository] Updating container from {1} to {2}' -f $MergePath, $rcTarget) # | Tee-Object -FilePath $logFile -Append
         Update-Repository -Path $MergePath -Destination $rcTarget -Confirm
       }
     } else {
@@ -318,7 +328,7 @@ function Merge-Repository {
   #EndRegion
 
   Write-Output -InputObject ''
-  Write-Output -InputObject (' {0} # Ending Merge-Repository' -f (Get-Date -Format g)) | Tee-Object -FilePath $logFile -Append
+  Write-Output -InputObject (' {0} # Ending Merge-Repository' -f (Get-Date -Format g)) # | Tee-Object -FilePath $logFile -Append
   Write-Output -InputObject ''
   # ======== THE END ======================
 } # end function Merge-Repository
@@ -347,7 +357,7 @@ function Update-Repository {
       Thanks to Robocopy, the Path and/or Destination can be UNC paths
 
   #>
-  [CmdletBinding(SupportsShouldProcess)]
+  [CmdletBinding()]
   Param(
     [Parameter(Position = 0)]
     [Alias('Label','Repository')]
@@ -367,26 +377,26 @@ function Update-Repository {
     $Destination
   )
 
-  if (-not [bool](Get-Variable -Name MergeSettings -ErrorAction Ignore)) {
+  if (-not [bool](Get-Variable -Name MergeSettings -ErrorAction SilentlyContinue)) {
     Write-Verbose -Message ('Reading configs from {0}' -f $SettingsFileName)
     Import-MergeSettings
   }
 
   # Specifying the logFile name now explicitly updates the datestamp on the log file
   $logFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -Format FileDate)))
-  Write-Output -InputObject '' | Tee-Object -FilePath $logFile -Append
+  Write-Output -InputObject '' # | Tee-Object -FilePath $logFile -Append
   Write-Output -InputObject ('logging to {0}' -f $logFile)
-  Write-Output -InputObject "$(Get-Date -Format g) # Starting Update-Repository" | Tee-Object -FilePath $logFile -Append
+  Write-Output -InputObject "$(Get-Date -Format g) # Starting Update-Repository" # | Tee-Object -FilePath $logFile -Append
 
   # robocopy.exe writes wierd characters, if/when we let it share, so robocopy gets it's own log file
   $RCLogFile = $(Join-Path -Path $myPSLogPath -ChildPath ('{0}-robocopy-{1}.log' -f $($MyScriptInfo.CommandName.Split('.'))[0], (Get-Date -Format FileDate)))
 
-  Write-Verbose -Message ('[Update-Repository] Robocopying {0} from {1} to {2}, and logging to {3}' -f $Name, $Path, $Destination, $RCLogFile) | Tee-Object -FilePath $logFile -Append
-  Write-Verbose -Message ('robocopy.exe "{1}" "{2}" /MIR /TEE /LOG+:"{3}" /IPG:777 /R:1 /W:1 /NP /TS /FP /DCOPY:T /DST /XD .git /XF .gitattributes /NJH' -f $Name, $Path, $Destination, $RCLogFile) #| Tee-Object -FilePath $logFile -Append
+  Write-Verbose -Message ('[Update-Repository] Robocopying {0} from {1} to {2}, and logging to {3}' -f $Name, $Path, $Destination, $RCLogFile) # | Tee-Object -FilePath $logFile -Append
+  Write-Debug -Message ('robocopy.exe "{1}" "{2}" /MIR /TEE /LOG+:"{3}" /IPG:777 /R:1 /W:1 /NP /TS /FP /DCOPY:T /DST /XD .git /XF .gitattributes /NJH' -f $Name, $Path, $Destination, $RCLogFile) #| Tee-Object -FilePath $logFile -Append
 
   Start-Process -FilePath "$env:windir\system32\robocopy.exe" -ArgumentList ('"{1}" "{2}" /MIR /TEE /LOG+:"{3}" /IPG:777 /R:1 /W:1 /NP /TS /FP /DCOPY:T /DST /XD .git /XF .gitattributes /NJH' -f $Name, $Path, $Destination, $RCLogFile) -Wait -Verb open
 
-  Write-Output -InputObject "$(Get-Date -Format g) # End of Update-Repository" | Tee-Object -FilePath $logFile -Append
+  Write-Output -InputObject "$(Get-Date -Format g) # End of Update-Repository" # | Tee-Object -FilePath $logFile -Append
 
   # ======== THE END ======================
 } # end function Update-Repository
