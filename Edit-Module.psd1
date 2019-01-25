@@ -9,7 +9,7 @@
 # Updated on: 01/10/2018 : v2.3.2 - Refinement and output improvement to latest Merge-Module.ps1 (Previously known as PowerDiff)
 # Updated on: 02/27/2018 : v2.3.3 - Removed personalized functions from Merge-Module.ps1 and my repository settings in Merge-Module.json
 # Updated on: 04/06/2018 : v2.3.4 - Renamed variables (and corresponding JSON objects) with 'Diff' in their name to use naming-consistent 'Merge'
-# Updated on: 08/24/2018 : v2.3.5 - Added Compare-PSEdit and Update-VSCode functions. Disable CompareDirectory / Compare-Directory.ps1 dot-souce references in Merge-Module.ps1
+# Updated on: 10/24/2018 : v2.3.5 - Added Compare-PSEdit and Update-VSCode functions, Disable CompareDirectory / Compare-Directory.ps1 references from within Merge-Module.ps1
 # Updated on: 01/02/2019 : v2.3.6 - Update Compare-PSEdit and Install-VSCode functions to work with VSCode-User (edition) instead of portable edition
 #
 

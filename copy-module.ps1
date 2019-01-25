@@ -21,7 +21,7 @@ $private:ModulesPath = $null
 $installAllUsers = $false
 if (Get-Variable -Name myPSModulesPath -ValueOnly -ErrorAction Ignore) {
     Write-Verbose -Message ('$private:ModulesPath will be {0}' -f $myPSModulesPath)
-    $private:ModulesPath = $myPSModulesPath 
+    $private:ModulesPath = $myPSModulesPath
 } else {
     # Test Admin permissions; if found, install module for all users. If NOT, install for current user only
     if ($IsWindows) {
@@ -73,7 +73,7 @@ Write-Output -InputObject ''
 Write-Output -InputObject ('Copying module from {0} to {1}' -f $PSScriptRoot, $private:ModuleDestination)
 
 try {
-    Get-ChildItem $PSScriptRoot -Recurse -Exclude 'copy-module.ps1','.git*','*.md','*.bak','*.old' | 
+    Get-ChildItem $PSScriptRoot -Recurse -Exclude 'copy-module.ps1','.git*','*.md','*.bak','*.old' |
     Copy-Item -Destination $private:ModuleDestination -Force
 }
 
