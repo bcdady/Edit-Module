@@ -9,7 +9,8 @@
 # Updated on: 01/10/2018 : v2.3.2 - Refinement and output improvement to latest Merge-Module.ps1 (Previously known as PowerDiff)
 # Updated on: 02/27/2018 : v2.3.3 - Removed personalized functions from Merge-Module.ps1 and my repository settings in Merge-Module.json
 # Updated on: 04/06/2018 : v2.3.4 - Renamed variables (and corresponding JSON objects) with 'Diff' in their name to use naming-consistent 'Merge'
-# Updated on: 12/28/2018 : v2.3.5 - Disable CompareDirectory / Compare-Directory.ps1 references from within Merge-Module.ps1
+# Updated on: 08/24/2018 : v2.3.5 - Added Compare-PSEdit and Update-VSCode functions. Disable CompareDirectory / Compare-Directory.ps1 dot-souce references in Merge-Module.ps1
+# Updated on: 01/02/2019 : v2.3.6 - Update Compare-PSEdit and Install-VSCode functions to work with VSCode-User (edition) instead of portable edition
 #
 
 @{
@@ -18,7 +19,7 @@
 RootModule = 'Edit-Module.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.3.5'
+ModuleVersion = '2.3.6'
 
 # ID used to uniquely identify this module
 GUID = '4c59e659-24f7-4370-88ac-1dbdcfdc2e63'
@@ -107,7 +108,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = '12/28/2018 : v2.3.5 - Disable CompareDirectory / Compare-Directory.ps1 references from within Merge-Module.ps1'
+        ReleaseNotes = '01/02/2019 : v2.3.6 - Update Compare-PSEdit and Install-VSCode functions to work with VSCode-User (edition) instead of portable edition'
 
         # External dependent modules of this module
         # ExternalModuleDependencies = ''
@@ -123,3 +124,47 @@ PrivateData = @{
 # DefaultCommandPrefix = ''
 
 }
+
+# SIG # Begin signature block
+# MIIHqgYJKoZIhvcNAQcCoIIHmzCCB5cCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUE8WyPiICjgp0reRzpM79XmOe
+# xy6gggTFMIIEwTCCA3WgAwIBAgIQKn06fomwQ6RKe8dq7JvZkjBBBgkqhkiG9w0B
+# AQowNKAPMA0GCWCGSAFlAwQCAQUAoRwwGgYJKoZIhvcNAQEIMA0GCWCGSAFlAwQC
+# AQUAogMCASAwgZgxCzAJBgNVBAYTAlVTMRAwDgYDVQQIDAdNb250YW5hMREwDwYD
+# VQQHDAhNaXNzb3VsYTETMBEGA1UECgwKQnJ5YW4gRGFkeTEVMBMGA1UECwwMQ29k
+# ZSBTaWduaW5nMRowGAYDVQQDDBFTZWN1cmUgUG93ZXJTaGVsbDEcMBoGCSqGSIb3
+# DQEJARYNYnJ5YW5AZGFkeS51czAeFw0xODEyMzAwMzM5NDNaFw0xOTEyMzAwMzU5
+# NDNaMIGYMQswCQYDVQQGEwJVUzEQMA4GA1UECAwHTW9udGFuYTERMA8GA1UEBwwI
+# TWlzc291bGExEzARBgNVBAoMCkJyeWFuIERhZHkxFTATBgNVBAsMDENvZGUgU2ln
+# bmluZzEaMBgGA1UEAwwRU2VjdXJlIFBvd2VyU2hlbGwxHDAaBgkqhkiG9w0BCQEW
+# DWJyeWFuQGRhZHkudXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC3
+# tawJQoBbR3HJe+GYdZMLf0jhbO7FM0SoX8509y1RR62TTFsgnK2Aqa1SbzTysBMS
+# rL0+MI6ud44lC7/qCSTcCoqIpSMGtJ56QxJ3lLcRBe5Xb4xDLvzitpaGeKlugHfd
+# QAAd1w0SetXT3D/AjnzW0/WrYZ6in3I9FzFF+JC24t4PGyQUaeE6UgCtEVyOdRGA
+# gRr1Xhz9jomUVw84qof4LAAdfroR1z7VgY8j2Mq66HzsY63/y9iiBJSOeQ+OvBuz
+# 6aaBoiiOflQ0HxbZYXuj5HSWeRPaFa/cM2Vp1iBJQ0K0ptaS6pAx2yOngWKhTGUY
+# OPaFRxELdUICyBrSWFdlAgMBAAGjgZwwgZkwDgYDVR0PAQH/BAQDAgeAMFMGA1Ud
+# EQRMMEqgHQYKKwYBBAGCNxQCA6APDA1icnlhbkBkYWR5LnVzgQ1icnlhbkBkYWR5
+# LnVzggt3d3cuZGFkeS51c4INYnJ5YW4uZGFkeS51czATBgNVHSUEDDAKBggrBgEF
+# BQcDAzAdBgNVHQ4EFgQUZUQGb3yr7zNZSgdlXQEmJ9SpdjIwQQYJKoZIhvcNAQEK
+# MDSgDzANBglghkgBZQMEAgEFAKEcMBoGCSqGSIb3DQEBCDANBglghkgBZQMEAgEF
+# AKIDAgEgA4IBAQCe91LHEw1CznKDFzRP4zzRf8DL/ffFgkOPjnb3e1JYiuTTobii
+# HQtrTBRxnRh3t5nYQOkAdQZRW/VY2cUopMnVvBo1iJKkosPyVvP+QeZ/V9J9kJR0
+# cYUpiMXmFKB6JMfGCfHG+cN3t57HDC2+yXD/tkvF0DwKrIXVz6MJIAq6ww9ZLs+d
+# 7dUYo1T4I8F3J28X5YBiBPTQ0W2or2CWfnTNwxzQavdrRFoPBaZgXTrkdIjCuI9G
+# 4Tnl1lNfz5qCshSBhOrwwYUkTuZv32hcYe1Yuj2exBfEF3gT5Cbgrp25v37dRDZ5
+# qmIb6V9gpxBxUlJp2ApxyCvvGOejlh6BhtaxMYICTzCCAksCAQEwga0wgZgxCzAJ
+# BgNVBAYTAlVTMRAwDgYDVQQIDAdNb250YW5hMREwDwYDVQQHDAhNaXNzb3VsYTET
+# MBEGA1UECgwKQnJ5YW4gRGFkeTEVMBMGA1UECwwMQ29kZSBTaWduaW5nMRowGAYD
+# VQQDDBFTZWN1cmUgUG93ZXJTaGVsbDEcMBoGCSqGSIb3DQEJARYNYnJ5YW5AZGFk
+# eS51cwIQKn06fomwQ6RKe8dq7JvZkjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIB
+# DDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEE
+# AYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUhf9jgg5smDuJ
+# gs1Qb7JSixxNy3kwDQYJKoZIhvcNAQEBBQAEggEANoy6h1bgT5pwzconyXoZQLni
+# CIdAXyMNK3dwHahgskJhvv1YPKwkWYKHdXJjuexsH6/ky/7S+AuaGexECbmCOadV
+# DKsXmrqq0ka7g6FC9Vv7cZL4/RifFuV6fCSUZlmvfc9nzjDi1yFCxm5oNNj/7CiE
+# wsHSwwWMjcwfIHGH0ohLd1jYl361MVtayXnDb9mD9eLHq5yIZyiGz0kWdnxmTsAg
+# ao5Nm68OVatkFBPRlVY1i3KTAYJehrw2Doageyuf5C6ME9ziaxD/OT0KY4ftK6sV
+# q48HB/220eLHes4E62qh7OMPdkIfo9p+WDJIp1BbVpecVhHimZMDwLBnOkLXIw==
+# SIG # End signature block
