@@ -4,10 +4,25 @@
 Param()
 #Set-StrictMode -Version latest
 
+# Uncomment the following 2 lines for testing profile scripts with Verbose output
+#'$VerbosePreference = ''Continue'''
+#$VerbosePreference = 'Continue'
+
+Write-Verbose -Message 'Detect -Verbose $VerbosePreference'
+switch ($VerbosePreference) {
+  Stop             { $IsVerbose = $True }
+  Inquire          { $IsVerbose = $True }
+  Continue         { $IsVerbose = $True }
+  SilentlyContinue { $IsVerbose = $False }
+  Default          { if ('Verbose' -in $PSBoundParameters.Keys) {$IsVerbose = $True} else {$IsVerbose = $False} }
+}
+Write-Verbose -Message ('$VerbosePreference = ''{0}'' : $IsVerbose = ''{1}''' -f $VerbosePreference, $IsVerbose)
+
 # Declare path where the functions below should look for git.exe
 # If/when needed, this path will be added to $Env:Path as a dependency of VS Code and some extensions
-$GitPath = Join-Path -Path $myPSHome -ChildPath 'Resources\GitPortable\cmd'
-Set-Variable -Name GitPath -Value (Join-Path -Path $myPSHome -ChildPath 'Resources\GitPortable\cmd') -Option AllScope
+if (Test-Path -Path Env:myPSHome -ErrorAction SilentlyContinue) {
+    Set-Variable -Name GitPath -Value (Join-Path -Path $myPSHome -ChildPath 'Resources\GitPortable\cmd') -Option AllScope
+}
 
 #Region MyScriptInfo
     Write-Verbose -Message '[Open-PSEdit] Populating $MyScriptInfo'
@@ -25,7 +40,6 @@ Set-Variable -Name GitPath -Value (Join-Path -Path $myPSHome -ChildPath 'Resourc
         # We didn't get a successful command / script name or path from $MyInvocation, so check with CallStack
         Write-Verbose -Message 'Getting PSCallStack [$CallStack = Get-PSCallStack]'
         $Private:CallStack      = Get-PSCallStack | Select-Object -First 1
-        # $CallStack | Select Position, ScriptName, Command | format-list # FunctionName, ScriptLineNumber, Arguments, Location
         $Private:myScriptName   = $Private:CallStack.ScriptName
         $Private:myCommand      = $Private:CallStack.Command
         Write-Verbose -Message ('$ScriptName: {0}' -f $Private:MyScriptName)
@@ -56,7 +70,7 @@ Set-Variable -Name GitPath -Value (Join-Path -Path $myPSHome -ChildPath 'Resourc
 #End Region
 
 # Detect older versions of PowerShell and add in new automatic variables for more cross-platform consistency in PS Core
-if (-not ((Get-Variable -Name IsWindows -ErrorAction Ignore) -eq $true)) {
+if (-not ((Get-Variable -Name IsWindows -ErrorAction Ignore) -eq $true)) { 
     Set-Variable -Name IsWindows -Value $false -ErrorAction Ignore
     if ($Host.Version.Major -le 5) {
         Set-Variable -Name IsWindows -Value $true -ErrorAction Ignore
@@ -69,11 +83,6 @@ if ($IsWindows) {
     # Check admin rights / role; same approach as Test-LocalAdmin function in Sperry module
     $IsAdmin = (([security.principal.windowsprincipal] [security.principal.windowsidentity]::GetCurrent()).isinrole([Security.Principal.WindowsBuiltInRole] 'Administrator'))
 }
-
-# dot-source script file containing Add-PATH and related helper functions
-#$RelativePath = Split-Path -Path (Resolve-Path -Path $MyScriptInfo.CommandPath) -Parent
-#Write-Verbose -Message 'Initializing .\Edit-Path.ps1'
-#. $(Join-Path -Path (Split-Path -Path (Resolve-Path -Path $MyScriptInfo.CommandPath) -Parent) -Childpath 'Edit-Path.ps1')
 
 Write-Verbose -Message 'Declaring Function Get-PSEdit'
 Function Get-PSEdit {
@@ -89,6 +98,7 @@ Function Get-PSEdit {
 	      C:\Program Files\Microsoft VS Code\bin\code.cmd
   #>
 
+
     Write-Verbose -Message 'Getting environment variable PSEdit'
     if ($Env:PSEdit) {
         return $Env:PSEdit
@@ -99,15 +109,14 @@ Function Get-PSEdit {
 
 Write-Verbose -Message 'Declaring Function Assert-PSEdit'
 Function Assert-PSEdit {
-    [CmdletBinding(ConfirmImpact='High',SupportsShouldProcess)]
     Param (
         [Parameter(Position=0)]
         [ValidateScript({Test-Path -Path (Resolve-Path -Path $PSItem)})]
         [String]
-        $Path = '$HOME\vscode\app\bin\code.cmd'
+        $Path = (Join-Path -Path $HOME -ChildPath 'Programs\VSCode\code.exe' -Resolve)
     )
 
-    if ($Env:PSEdit) {
+    if (Test-Path -Path Env:PSEdit) {
         if (Test-Path -Path $Env:PSEdit) {
             Write-Verbose -Message ('Preparing to update / override $Env:PSEdit {0} with {1}' -f $Env:PSEdit, $Path)
         } else {
@@ -147,399 +156,28 @@ Function Assert-PSEdit {
             $Path = Resolve-Path -Path $Path
             Write-Verbose -Message ('Setting $Env:PSEdit to Path (Parameter): ''{0}''' -f $Path)
             $Env:PSEdit = $Path
-            if ($IsWindows -and ($Path -like '*\\code\.')) {
+            if ($IsWindows -and ($Path -match '\\code\.')) {
                 # Check and update $Env:PATH to include path to code; some code extensions look for code in the PATH
                 Write-Verbose -Message "Adding $(Split-Path -Path $Env:PSEdit -Parent -Resolve) to `$Env:PATH"
                 # Send output from Add-EnvPath to Null, so we don't have to read $Env:Path in the console
                 # No need for pre-processing, as Add-EnvPath function handles attempts to add duplicate path statements
-                $null = Add-EnvPath -Path (Split-Path -Path $Env:PSEdit -Parent -Resolve)
-                # Check and conditionally update File Type Associations, to make it easier to open supported file types in VS Code, from Windows Explorer
-      <#          if (Test-FileTypeAssociation) {
-                    Write-Verbose -Message 'Expected file types are associated with VS code'
-                } else {
-                    Write-Verbose -Message 'Associating specified file types with VS code'
-                    Add-FileType
-                }
-      #>
+                $null = Add-EnvPath -Path (Split-Path -Path $Env:PSEdit -Parent -Resolve).ToString()
+                # (Over)Write the CURRENT_USER registry data value for Explorer right-click 'Open with Code'
+                Write-Verbose -Message 'Register VSCode for all files (*)'
+                Set-VSCodeRegistryCommand
+                Write-Verbose -Message 'Register VSCode for PowerShell files (.ps1, .psd1, .psm1)'
+                Set-VSCodeRegistryCommand -ProgID 'VSCode.ps1'
+                Set-VSCodeRegistryCommand -ProgID 'VSCode.psd1'
+                Set-VSCodeRegistryCommand -ProgID 'VSCode.psm1'
             }
     } elseif ($PSISE) {
         Write-Verbose -Message ('Setting $Env:PSEdit to (ISE): ''{0}''' -f $PSISE)
         $Env:PSEdit = $PSISE
     }
+    Remove-Variable -Name vscode -ErrorAction SilentlyContinue
+    Remove-Variable -Name PSISE -ErrorAction SilentlyContinue
 
     return $Env:PSEdit
-}
-
-Write-Verbose -Message 'Declaring Function Test-FileTypeAssociation'
-Function Test-FileTypeAssociation {
-    [CmdletBinding()]
-    Param (
-        [Parameter(Position=0)]
-        [string]$ProgID = 'vscode'
-        ,
-        [Parameter(Position=1)]
-        [string]$Description = 'code file'
-    )
-    $ErrorActionPreference = 'SilentlyContinue'
-    $Answer = (Get-ItemProperty -Path ('HKCU:\Software\Classes\{0}' -f $ProgID) -Name '(Default)' -ErrorAction SilentlyContinue).'(Default)'
-    Write-Verbose -Message ("ProgID {0} is associated as '{1}'" -f $ProgID, $Answer)
-    $ErrorActionPreference = 'Continue'
-    if ($Answer -eq $Description) {
-        return $true
-    } else {
-        return $false
-    }
-}
-
-Write-Verbose -Message 'Declaring Function Add-VSCFileTypeAssociation'
-Function Add-VSCFileTypeAssociation {
-  [CmdletBinding(ConfirmImpact='High',SupportsShouldProcess)]
-  # see https://msdn.microsoft.com/en-us/library/dd878260(VS.85).aspx
-  Param (
-    [Parameter(Position=0)]
-        [string]$ProgID = 'VSCode'
-    ,
-    [Parameter(Position=1)]
-    [ValidateScript({Test-Path -Path (Resolve-Path -Path $PSItem)})]
-        [string]$CommandPath = (Resolve-Path -Path ('{0}\vscode\app\code.exe' -f $HOME))
-  )
-  # Programmatically update the Windows "Default Program" for file types / extensions supported by VS Code
-
-  <#
-      Method 1: Old school
-      https://technet.microsoft.com/en-us/library/ff687021.aspx
-      https://superuser.com/questions/406985/programatically-associate-file-extensions-with-application-on-windows
-      cmd /c assoc .ps1
-
-      Method 2: Registry 'hack'
-      Reminder: "HKEY_CLASSES_ROOT" is an alias to HKLM:\SOFTWARE\Classes
-
-      HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts
-      See also:
-      Programmatic Identifiers
-      https://msdn.microsoft.com/en-us/library/windows/desktop/cc144152(v=vs.85).aspx
-  #>
-
-    # $CodeFileTypes = @('.bash','.bashrc','.bash_login','.bash_logout','.bash_profile','.bat','.cmd','.coffee','.config','.css','.gitattributes','.gitconfig','.gitignore','.go','.htm','.html','.ini','.js','.json','.lua','.kix','.markdown','.md','.mdoc','.mdown','.mdtext','.mdtxt','.mdwn','.mkd','.mkdn','.pl','.pl6','.pm','.pm6','.profile','.properties','.ps1','.psd1','.psgi','.psm1','.py','.sh','.sql','.t','.tex','.ts','.txt','.vb','.vbs','.xaml','.xml','.yaml','.yml','.zsh')
-
-    Write-Verbose -Message 'Declaring Function Test-UserFileType'
-    function Test-UserFileType {
-        Param (
-            [Parameter(Position=0)]
-            [string]$FileType = '.ps1'
-        )
-
-        $UserFileTypeSet = $false
-
-        Write-Verbose -Message ('Testing $FileType: {0}' -f $FileType)
-
-        Write-Verbose -Message ('Checking for registry key HKCU:\Software\Classes\{0}' -f $FileType)
-        if (Test-Path -Path ('HKCU:\Software\Classes\{0}' -f $FileType)) {
-            Write-Verbose -Message ('Detected HKCU:\Software\Classes\{0}' -f $FileType)
-            try {
-                Write-Verbose -Message ('Get-ItemProperty -Path "HKCU:\Software\Classes\{0}" -Name "(Default)"' -f $FileType)
-                $default = (Get-ItemProperty -Path ('HKCU:\Software\Classes\{0}' -f $FileType) | Select-Object -Property '(default)').'(default)'
-                $UserFileTypeSet = $true
-            }
-            catch {
-                Write-Verbose -Message ('User FileType Description {0} NOT set' -f $FileType)
-            #    $default = (Get-ItemProperty -Path "HKLM:\Software\Classes\$FileType" | Select-Object -Property '(default)').'(default)'
-            #    Write-Verbose -Message ('Set-ItemProperty -Path "HKCU:\Software\Classes\{0}" -Name "(Default)" -Value {1}' -f $FileType,$default)
-            #    $null = Set-ItemProperty -Path "HKCU:\Software\Classes\$FileType" -Name '(Default)' -Value $default -Force -ErrorAction SilentlyContinue
-            #    $UserFileTypeSet = $true
-            }
-        }
-
-        if ($UserFileTypeSet) {
-            Write-Verbose -Message ('$UserFileTypeSet is $true')
-            Write-Verbose -Message ('{0} FileType Description is {1}' -f $FileType, $default)
-            return $true
-        } else {
-            return $false
-        }
-    }
-
-    Write-Verbose -Message 'Declaring Function Test-UserProgID'
-    function Test-UserProgID {
-        Param (
-            [Parameter(Position=0)]
-            [string]$ProgID = 'VSCode'
-        )
-
-        $UserProgIDSet = $false
-
-        Write-Verbose -Message ('Testing $ProgID: {0}' -f $ProgID)
-
-        Write-Verbose -Message ('Checking for registry key HKCU:\Software\Classes\{0}' -f $ProgID)
-        if (Test-Path -Path ('HKCU:\Software\Classes\{0}' -f $ProgID)) {
-            Write-Verbose -Message ('Detected HKCU:\Software\Classes\{0}' -f $ProgID)
-            try {
-                Write-Verbose -Message ('Get-ItemProperty -Path "HKCU:\Software\Classes\{0}" -Name "(Default)"' -f $ProgID)
-                $default = (Get-ItemProperty -Path ('HKCU:\Software\Classes\{0}' -f $ProgID) | Select-Object -Property '(default)').'(default)'
-                $UserFileTypeSet = $true
-            }
-            catch {
-                Write-Verbose -Message ('Get-ItemProperty -Path "HKLM:\Software\Classes\{0}" -Name "(Default)"' -f $ProgID)
-                $default = (Get-ItemProperty -Path ('HKLM:\Software\Classes\{0}' -f $ProgID) | Select-Object -Property '(default)').'(default)'
-                Write-Verbose -Message ('Set-ItemProperty -Path "HKCU:\Software\Classes\{0}" -Name "(Default)" -Value {1}' -f $ProgID,$default)
-                $null = Set-ItemProperty -Path ('HKCU:\Software\Classes\{0}' -f $ProgID) -Name '(Default)' -Value $default -Force -ErrorAction SilentlyContinue
-            }
-            Write-Verbose -Message ('{0} ProgID is {1}' -f $ProgID, $default)
-            $UserFileTypeSet = $true
-        }
-
-        Write-Verbose -Message ('Testing UserProgID: {0}' -f $ProgID)
-
-        Write-Verbose -Message ('Checking for registry key HKCU:\Software\Classes\{0}' -f $ProgID)
-        if (Test-Path -Path ('HKCU:\Software\Classes\{0}' -f $ProgID)) {
-            Write-Verbose -Message ('Detected HKCU:\Software\Classes\{0}' -f $ProgID)
-            $UserProgIDSet = $true
-        }
-
-        if ($UserFileTypeSet -and $UserProgIDSet) {
-            Write-Verbose -Message ('$UserFileTypeSet and $UserProgIDSet are $true')
-            return $true
-        } else {
-            return $false
-        }
-    }
-
-    Write-Verbose -Message 'Declaring Function Add-UserProgID'
-    function Add-UserProgID {
-        Param (
-            [Parameter(Position=0)]
-            [string]$FileType = '.ps1'
-            ,
-            [Parameter(Position=1)]
-            [string]$Description = 'PowerShell Script'
-        )
-        $ProgID_FTA = "$ProgID$FileType"
-        Write-Verbose -Message ('$ProgID_FTA: {0}' -f $ProgID_FTA)
-        New-Item -Path "HKCU:\Software\Classes\$ProgID_FTA" -Force
-
-        Write-Verbose -Message ('Set-ItemProperty -Path "HKCU:\Software\Classes\{0}" -Name "(Default)" -Value {1}' -f $ProgID_FTA,$Description)
-        $null = Set-ItemProperty -Path "HKCU:\Software\Classes\$ProgID_FTA" -Name '(Default)' -Value $Description -Force -ErrorAction SilentlyContinue
-
-        Write-Verbose -Message ('New-Item -Path HKCU:\SOFTWARE\Classes\{0}\shell\open\command :: "{1}" "%1"' -f $ProgID_FTA,$CommandPath)
-        $null = New-Item -Path "HKCU:\SOFTWARE\Classes\$ProgID_FTA\shell\open\command" -Force -ErrorAction SilentlyContinue
-        $null = New-ItemProperty -Path "HKCU:\SOFTWARE\Classes\$ProgID_FTA\shell\open\command" -Name '(Default)' -PropertyType String -Value """$CommandPath"" ""%1"""  -Force -ErrorAction SilentlyContinue
-
-        Write-Verbose -Message ('New-Item -Path HKCU:\SOFTWARE\Classes\{0}\shell\open\command :: "{1}" "%1"' -f $ProgID_FTA,$CommandPath)
-        $null = New-Item -Path "HKCU:\SOFTWARE\Classes\$ProgID_FTA\shell\open\command" -Force -ErrorAction SilentlyContinue
-        $null = New-ItemProperty -Path "HKCU:\SOFTWARE\Classes\$ProgID_FTA\shell\open\command" -Name '(Default)' -PropertyType String -Value """$CommandPath"" ""%1"""  -Force -ErrorAction SilentlyContinue
-
-        # EditFlags = 0x00010004
-        Write-Verbose -Message "New-ItemProperty -Path 'HKCU:\SOFTWARE\Classes\$ProgID_FTA' -Name 'EditFlags' -PropertyType DWORD -Value '0x00010004'"
-        $null = New-ItemProperty -Path "HKCU:\SOFTWARE\Classes\$ProgID_FTA" -Name 'EditFlags' -PropertyType DWORD -Value '0x00010004'  -Force -ErrorAction SilentlyContinue
-
-        # PerceivedType = "text"
-        Write-Verbose -Message "New-ItemProperty -Path 'HKCU:\SOFTWARE\Classes\$ProgID_FTA' -Name 'PerceivedType' -PropertyType String -Value 'text'"
-        $null = New-ItemProperty -Path "HKCU:\SOFTWARE\Classes\$ProgID_FTA" -Name 'PerceivedType' -PropertyType String -Value 'text'  -Force -ErrorAction SilentlyContinue
-    }
-
-    Write-Verbose -Message 'Declaring Function Add-OpenWithProgID'
-    function Add-OpenWithProgID {
-        Param (
-            [Parameter(Mandatory,Position=0,HelpMessage='Specify File Type to add/update association.')]
-            [ValidateNotNullorEmpty()]
-            [string]
-            $FileType,
-            [Parameter(Mandatory,Position=1,HelpMessage='Specify ProgID to associate FileType with.')]
-            [string]
-            $OpenWithProgid
-        )
-        $ProgID_FTA = "$ProgID$FileType"
-        Write-Verbose -Message ('$ProgID_FTA: {0}' -f $ProgID_FTA)
-
-        # Check if the FileType has this $OpenWithProgid set
-        $OpenWithProgidMatched = $false
-        Get-Item -Path ('HKCU:\SOFTWARE\Classes\{0}\OpenWithProgids' -f $FileType) | ForEach-Object {
-            Write-Verbose -Message ('OpenWithProgid: {0}' -f $PSItem.Property)
-            if ($PSItem.Property -eq $OpenWithProgid) {
-                $OpenWithProgidMatched = $true
-            }
-        }
-
-        # If the FileType does not have this $OpenWithProgid, then we add it
-        Write-Verbose -Message ('OpenWithProgidMatched: {0}' -f $OpenWithProgidMatched)
-        if ($OpenWithProgidMatched) {
-            Write-Verbose -Message ('OpenWithProgid {0} already set in the registry for FTA: {1}' -f $OpenWithProgid, $ProgID_FTA)
-        } else {
-            Write-Verbose -Message ('Adding OpenWithProgid {0} for FTA: {1}' -f $OpenWithProgid, $ProgID_FTA)
-            Write-Verbose -Message ('New-Item -Path HKCU:\SOFTWARE\Classes\{0}\OpenWithProgids\{1} = ' -f $ProgID_FTA, $OpenWithProgid)
-            $null = New-Item -Path ('HKCU:\SOFTWARE\Classes\{0}\OpenWithProgids' -f $FileType) -Force -ErrorAction SilentlyContinue
-            $null = New-ItemProperty -Path ('HKCU:\SOFTWARE\Classes\{0}\OpenWithProgids' -f $FileType) -Name $OpenWithProgid -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-# Before checking or changing file type OpenWith assocation, add essential ProgIDs
-$CodeProgID = DATA {
-    ConvertFrom-StringData -stringdata @'
-    bashfile = Bash Script
-    gitfile = Git
-    JSONFile = JavaScript Configuration File
-    kixfile = KIX Script
-    luafile = LUA Script
-    MOFfile = Managed Object File
-    markdownfile = Markdown Document
-    Perl.Module = Perl Module
-    Perl.Script = Perl Script
-    pyfile = Python Script
-    shfile = Shell Script
-    SQL.document = SQL document
-    yamlfile = YAML Configuration File
-'@
-}
-
-$CodeFileTypes = DATA {
-    ConvertFrom-StringData -stringdata @'
-    .bash = bashfile
-    .bash_login = bashfile
-    .bash_logout = bashfile
-    .bash_profile = bashfile
-    .bashrc = bashfile
-    .bat = batfile
-    .cmd = cmdfile
-    .config = inifile
-    .gitattributes = gitfile
-    .gitconfig = gitfile
-    .gitignore = gitfile
-    .htm = HTTP
-    .html = htmlfile
-    .ini = inifile
-    .json = JSONFile
-    .kix = kixfile
-    .lua = luafile
-    .markdown = markdown.document
-    .md = markdown.document
-    .mdoc = markdown.document
-    .mdown = markdown.document
-    .mdtext = markdown.document
-    .mdtxt = markdown.document
-    .mdwn = markdown.document
-    .mkd = markdown.document
-    .mkdn = markdown.document
-    .mof = MOFfile
-    .pl = Perl.Script
-    .pl6 = Perl.Script
-    .pm = Perl.Module
-    .pm6 = Perl.Module
-    .profile = bashfile
-    .properties = inifile
-    .ps1 = Microsoft.PowerShellScript.1
-    .psd1 = Microsoft.PowerShellData.1
-    .psm1 = Microsoft.PowerShellModule.1
-    .pssc = Microsoft.PowerShellSessionConfiguration.1
-    .py = pyfile
-    .sh = shfile
-    .sql = sql.document
-    .txt = txtfile
-    .vbs = vbsfile
-    .xaml = Windows.XamlDocument
-    .xml = xmlfile
-    .yaml = yamlfile
-    .yml = yamlfile
-'@
-}
-
-    foreach ($ext in $CodeFileTypes.Keys) {
-        if (Test-UserProgID -FileType $ext) {
-            Write-Verbose -Message 'ProgID for FileType {0} Description already defined'
-        } else {
-            Write-Verbose -Message ('Add-UserProgID -FileType {0} -Description {1}' -f $ext, ('{0}' -f $CodeProgID.$($CodeFileTypes.$ext)))
-            Add-UserProgID -FileType $ext -Description $($CodeProgID.$($CodeFileTypes.$ext))
-        }
-
-        $default = (Get-ItemProperty -Path ('HKCU:\SOFTWARE\Classes\{0}' -f "$ProgID$ext") | Select-Object -Property '(default)').'(default)'
-        Write-Verbose -Message ('{0} (Default) Description is {1}' -f $ext,$default)
-        if ($default -eq "$ProgID$ext") {
-            # Current ProgID matches what we'd set it to
-            Write-Verbose -Message ('ProgID for FileType {0} assigned to {1}{2}' -f $default, $ProgID, $ext)
-        } else {
-            # just add OpenWithProgIDs
-            Write-Verbose -Message ('Add-OpenWithProgID -FileType {0} -OpenWithProgid {1}{2}' -f $ext, $ProgID, $ext)
-            Add-OpenWithProgID -FileType $ext -OpenWithProgid $ProgID$ext
-        }
-
-        if ($VerbosePreference -ne 'SilentlyContinue') {
-            Write-Verbose -Message ('Detected $VerbosePreference is {0}' -f $VerbosePreference)
-            Write-Verbose -Message 'Start-Sleep -Seconds 5'
-            Start-Sleep -Seconds 5
-        }
-    }
-
-    <#
-        #pseudo-code for these FTA
-
-        foreach ($ext in $CodeFileTypes)
-        if exist {
-            # just add OpenWithProgIDs
-            HKCU:\SOFTWARE\Classes\$ext\OpenWithProgids\$VSCode.ProgID
-        } else {
-            HKCU:\SOFTWARE\Classes\$ext\
-                (default) = $ext.Value
-      EditFlags = 0x00010004
-                PerceivedType = "text"
-    }
-
-        #pseudo-code for each ProgID / $ext.Value
-        * * https://msdn.microsoft.com/en-us/library/windows/desktop/bb762506(v=vs.85).aspx
-
-        if test-path HKCU:\SOFTWARE\Classes\$ext.Value {
-            show (default) description
-            compare \shell\open\command
-        } else {
-            HKCU:\SOFTWARE\Classes\$key.Name\(default) = $key.Value
-            HKCU:\SOFTWARE\Classes\$key.Name\shell\open\command = $key.Value
-        }
-
-        foreach ($ext in $CodeFileTypes.Keys) {
-            $RegPath = ('HKCU:\SOFTWARE\Classes\{0}' -f $ext)
-            if (Test-Path -Path $RegPath) {
-                $default = (Get-ItemProperty -Path $RegPath | Select-Object -Property '(default)').'(default)'
-                Write-Verbose -Message ('{0} (Default) Description is {1}' -f $RegPath,$default)
-                if ($default -eq "$ProgID$ext") {
-                    # Current ProgID matches what we'd set it to
-                    Write-Verbose -Message ('ProgID for FileType {0} assigned to {1}' -f $default, "$ProgID$ext")
-                } else {
-                    # just add OpenWithProgIDs
-                    Write-Verbose -Message ('Add-OpenWithProgID -FileType {0} -OpenWithProgid {1}' -f $ext, "$ProgID$ext")
-                    Add-OpenWithProgID -FileType $ext -OpenWithProgid $ProgID$ext
-                }
-            }
-        }
-
-    <#
-      Write-Verbose -Message ' > (line break)'
-      Write-Verbose -Message ' > (line break)'
-      Write-Verbose -Message ' > (line break)'
-      Write-Warning -Message " !`t!`t!`n`t> > > `n`t> > > Restarting Windows Explorer to refresh your file type associations.`n`t> > > "
-      '10 ...'
-      Start-Sleep -Seconds 1
-      '9 ...'
-      Start-Sleep -Seconds 1
-      '8 ...'
-      Start-Sleep -Seconds 1
-      '7 ...'
-      Start-Sleep -Seconds 1
-      '6 ...'
-      Start-Sleep -Seconds 1
-      '5 ...'
-      Start-Sleep -Seconds 1
-      '4 ...'
-      Start-Sleep -Seconds 1
-      '3 ...'
-      Start-Sleep -Seconds 1
-      '2 ...'
-      Start-Sleep -Seconds 1
-      '1 ...'
-      Start-Sleep -Seconds 1
-      Get-Process -Name explorer* | Stop-Process
-    #>
-  #Start-Sleep -Seconds 1
-  ('Opening Explorer to {0}' -f $HOME)
-  Start-Sleep -Seconds 1
-  & "$env:windir\explorer.exe" $HOME
 }
 
 Write-Verbose -Message 'Declaring Function Initialize-Git'
@@ -619,8 +257,11 @@ function Open-PSEdit {
         --install-extension guosong.vscode-util --install-extension ms-vscode.PowerShell --install-extension Shan.code-settings-sync --install-extension wmaurer.change-case --install-extension DavidAnson.vscode-markdownlint
         --install-extension LaurentTreguier.vscode-simple-icons --install-extension seanmcbreen.Spell --install-extension mohsen1.prettify-json --install-extension ms-vscode.Theme-MarkdownKit
     #>
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding()]
     param (
+        [Parameter(Position=0)]
+        [string]
+        $PSEdit = (Get-PSEdit),
         [Parameter(Position=0)]
         [array]
         $ArgumentList = $args
@@ -629,34 +270,55 @@ function Open-PSEdit {
     if (-not [bool]($Env:PSEdit)) {
         # If path to code.cmd is not yet known, use the supporting function Assert-PSEdit to establish it
         Write-Verbose -Message '$Env:PSEdit is not yet defined. Invoking Assert-PSEdit.'
-        Assert-PSEdit
+        $PSEdit = Assert-PSEdit
     }
 
     # Make sure we've got a usable path to PSEdit before proceeding
-    Test-Path -Path $Env:PSEdit -PathType Leaf -ErrorAction Stop | Out-Null
+    $null = Test-Path -Path $PSEdit -PathType Leaf -ErrorAction Stop
 
     $ArgsArray = New-Object -TypeName System.Collections.ArrayList
 
-    if ($Env:PSEdit -Like '*\code*') {
-        Write-Verbose -Message '$Env:PSEdit -Like "*code*"; adding VS Code arguments'
-        # Define 'default' Options, to pass to code
-        $null = $ArgsArray.Add('--skip-getting-started')
-        $null = $ArgsArray.Add('--user-data-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode'))
-        $null = $ArgsArray.Add('--extensions-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode\extensions'))
+    # Inspect $PSEdit to see if it looks like a portable instance of Visual Studio Code
+    if (($PSEdit -Like '*\code*') -and ($PSEdit -NotLike '*Microsoft VS Code*')) {
+        Write-Verbose -Message '$PSEdit -Like "*code*"; adding VS Code arguments'
+
+        # Support VS Code User installation edition
+        $DataPath = Join-Path -Path (Split-Path -Path $PSEdit) -ChildPath 'data' -ErrorAction Ignore
+        Write-Verbose -Message ('$DataPath is {0}' -f $DataPath)
+        if (Test-Path -Path $DataPath -IsValid) {
+            Write-Verbose -Message '$ArgsArray.Add(''--skip-getting-started'')'
+            $null = $ArgsArray.Add('--skip-getting-started')
+        } else {
+            Write-Verbose -Message '\data\ folder not found - VS Code will start in Getting Started mode'
+        }
+
+        Write-Verbose -Message '$ArgsArray.Add(''--user-data-dir $DataPath\user-data'')'
+        $null = $ArgsArray.Add('--user-data-dir {0}' -f (Join-Path -Path $DataPath -Childpath 'user-data'))
+        Write-Verbose -Message '$ArgsArray.Add(''--extensions-dir $DataPath\extensions'')'
+        $null = $ArgsArray.Add('--extensions-dir {0}' -f (Join-Path -Path $DataPath -Childpath 'extensions'))
+
         # also add --reuse-window parameter, unless --new-window or it's alias -n were set in @args
         if (($ArgumentList -notcontains '--new-window') -and ($ArgumentList -notcontains '-n')) {
             $null = $ArgsArray.Add('--reuse-window')
+            Write-Verbose -Message '$ArgsArray.Add(''--reuse-window'')'
         }
-    <#  if (-not (Test-FileTypeAssociation)) {
-            Add-FileTypeAssociation -ProgID 'vscode' -CommandPath $Env:PSEdit
+        <#  if (-not (Test-FileTypeAssociation)) {
+            Add-FileTypeAssociation -ProgID 'vscode' -CommandPath $PSEdit
         } #>
+        # Is this version of VS Code current?
+        Write-Verbose -Message 'Compare-PSEdit'
+        Compare-PSEdit
     }
-
-    if ($Env:PSEdit -Like '*Microsoft VS Code*') {
-        # If Code appears to be installed, as signalled by \Microsoft VS Code\ in it's path, then let it use default user-data-dir and extensions-dir
-        $ArgsArray.Remove(('--user-data-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode')))
-        $ArgsArray.Remove(('--extensions-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode\extensions')))
-    }
+    <#
+     if ($PSEdit -Like '*Microsoft VS Code*') {
+         # If Code appears to be installed, as signalled by \Microsoft VS Code\ in it's path, then let it use default user-data-dir and extensions-dir
+         $null = $ArgsArray.Remove(('--user-data-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode')))
+         $null = $ArgsArray.Remove(('--extensions-dir {0}' -f (Join-Path -Path $HOME -Childpath 'vscode\extensions')))
+ 
+         # Is this version of VS Code current?
+         Compare-PSEdit
+     }
+    #>
 
     # While we're at it, double-check git is available via PATH, for use from within VS Code
     # See ..\GitPortable\README.portable.md
@@ -697,21 +359,26 @@ function Open-PSEdit {
         }
     }
 
+    # Redirect PSedit to the cmd file, for intended argument / parameter handling
+    Write-Verbose -Message '$PSEdit = $PSEdit -replace \code\.exe,\bin\code.cmd'
+    $PSEdit = $PSEdit -replace '\\code\.exe','\bin\code.cmd'
+    Write-Verbose -Message ('$PSEdit is {0}' -f $PSEdit)
+
     if ($Args -or $ArgumentList) {
         # sanitize passed parameters ?
-        Write-Verbose -Message 'Processing $args.'
+        Write-Verbose -Message 'Processing $args'
         foreach ($token in $ArgumentList) {
             Write-Verbose -Message ('Processing $args token ''{0}''' -f $token)
             # TODO Enhance Advanced function with parameter validation to match code.cmd / code.exe
             # Check for unescaped spaces in file path arguments
-            if ($token -like ' ') {
+            if ($token -match '\s') {
                 Write-Verbose -Message 'Check $token for spaces'
                 if (Test-Path -Path $token) {
                     Write-Verbose -Message ('Wrapping $args token (path) {0} with double quotes' -f $token)
-                    $token = """$token"""
+                    $token = ('"{0}"' -f $token) # """$token"""
                 } else {
                     Write-Verbose -Message ('$args token {0} failed Test-Path, so NOT wrapping with double quotes' -f $token)
-                    $token = $token
+                    #$token = $token
                 }
             }
             Write-Verbose -Message ('Adding {0} to $ArgsArray' -f $token)
@@ -719,13 +386,13 @@ function Open-PSEdit {
         }
         Write-Verbose -Message ('Results of processing $args: {0}' -f $ArgsArray)
     }
-    Write-Output -InputObject ('Launching {0} {1}' -f $Env:PSEdit, $ArgsArray)
+    Write-Output -InputObject ('Launching {0} {1}' -f $PSEdit, $ArgsArray)
     if ($ArgsArray) {
         # Pass non-null $ArgsArray to -ArgumentList
-        Start-Process -NoNewWindow -FilePath $Env:PSEdit -ArgumentList $ArgsArray
+        Start-Process -NoNewWindow -FilePath $PSEdit -ArgumentList $ArgsArray
     } else {
         # Skip -ArgumentList
-        Start-Process -NoNewWindow -FilePath $Env:PSEdit
+        Start-Process -NoNewWindow -FilePath $PSEdit -ArgumentList '--help'
     }
 }
 
@@ -733,40 +400,3 @@ New-Alias -Name psedit -Value Open-PSEdit -Scope Global -Force
 
 # Conditionally restore this New-Alias invocation, with a check for 'VS Code' in Env:PATH
 New-Alias -Name Code -Value Open-PSEdit -Scope Global -Force
-
-# SIG # Begin signature block
-# MIIGOQYJKoZIhvcNAQcCoIIGKjCCBiYCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
-# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3f6VZ8tKt039f4Y3fHCYxgVa
-# m9GgggOQMIIDjDCCAnSgAwIBAgIQb7L7gsKP9LBCXokpVpr3fDANBgkqhkiG9w0B
-# AQsFADBeMQswCQYDVQQGEwJVUzEQMA4GA1UECAwHTW9udGFuYTERMA8GA1UEBwwI
-# TWlzc291bGExEzARBgNVBAoMCkJyeWFuIERhZHkxFTATBgNVBAMMDENvZGUgU2ln
-# bmluZzAeFw0xODEyMzEwNTQ4NTFaFw0xOTEyMzEwNjA4NTFaMF4xCzAJBgNVBAYT
-# AlVTMRAwDgYDVQQIDAdNb250YW5hMREwDwYDVQQHDAhNaXNzb3VsYTETMBEGA1UE
-# CgwKQnJ5YW4gRGFkeTEVMBMGA1UEAwwMQ29kZSBTaWduaW5nMIIBIjANBgkqhkiG
-# 9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtQsg3G7fHfmUVjQaUVb5Edwh4G7XT2bHyFXg
-# qWlu7+atPokmeek90NQQ9CwgVe6bpOGox7GU4KLfKOzGFGRVubkzIsz8dB2KE5tm
-# RGsHGMewfJVmu8JiUL+NclRhMbpPRNTvRgN7F9V1/0ImkJotim8h4zVnXLs5TK4K
-# raMfFeQxf6r+Ma4OWne8+TvThGS/soZF3+LYxVDkTcjiZ5feLkX3x4bU3TSCEmRV
-# FxjGCTybnan1lpEKCqkAVknTh78ujXkEsS7KSNzjONl3OM/tngrTJ6sD0zcdKKAv
-# z6qsQmMNrUmR2IbXsIJgTkYng58o4JXWGApG31HQU4/kNnA1nQIDAQABo0YwRDAO
-# BgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwMwHQYDVR0OBBYEFGTq
-# dt7yjMJHGEexnOuShOCV6+qXMA0GCSqGSIb3DQEBCwUAA4IBAQBf7MQ4sUp6DIrN
-# XXI3crr7FhljiSFa2e8b6w+gSAd8iR9377o9vrflMjyvyeDbL9knAbo3HB4qyjEU
-# kCJOhjjQ/d8ilGrE+zfzbhguob0+dzIniyaNcQa4vKZr9K32kb1GPGrcN7iG5lkk
-# DoPmuFRndpKd17UiZQceB2JEu4gtdlsHuENPvxJ0vSgwe010xzYnZyCHk65jrIM5
-# xMtuccxB8iDmR4t76KetigK3UhU1HP8PEM2srY7V7zHTWFwCUUAf3F8HPHjDWka0
-# 5OjGcyxBZDZw1dJnNw2DM6QhbxwUxnauXSueElzrndYoXfL5feHpWO3R2Xh96rLH
-# FSrdKWFIMYICEzCCAg8CAQEwcjBeMQswCQYDVQQGEwJVUzEQMA4GA1UECAwHTW9u
-# dGFuYTERMA8GA1UEBwwITWlzc291bGExEzARBgNVBAoMCkJyeWFuIERhZHkxFTAT
-# BgNVBAMMDENvZGUgU2lnbmluZwIQb7L7gsKP9LBCXokpVpr3fDAJBgUrDgMCGgUA
-# oHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYB
-# BAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0B
-# CQQxFgQURYCZmTd8S/4/Z6p0x2gCeoTC8kQwDQYJKoZIhvcNAQEBBQAEggEAjp0s
-# IyJf1LvtWRiGdAKzI5nqKLhYADQnXehPGRT6fbjBUqb//XQ4nyfjNUO5crgzjX/p
-# SX1U6Fm/chCFBRajMdBOHwF95vTsh/6jjYcRfBAwnVHEABmF1gHfi3mChSx7U7gy
-# GWzHFm8JqzCUSjzrZCAVdG0IaS2PN8x5aGPCpfVyPtZzcIqbiXmDi4aO69Z6grK8
-# LYkfIIgzwRHCfh5wDwJdW1jF5CVKC1k/pJzPBnTvW0tHVLNHv1fK+7crBlRpSQCf
-# +CRQ54k11UlM3U13BezUxqSBepCxEXLSTOaVvaW2gmuCF6swPDn4k0jxiUHuHbHp
-# IJJf6c28Jop/4PZQKw==
-# SIG # End signature block
