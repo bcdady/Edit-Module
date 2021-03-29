@@ -209,12 +209,14 @@ Function Repair-EnvPath {
 
 Write-Verbose -Message 'Declaring [Global] Function Get-EnvPath'
 Function Get-EnvPath {
-    Return $Env:Path
+    Return $Env:PATH
 }
 
 Write-Verbose -Message 'Declaring [Global] Function Get-EnvPathFromRegistry'
 Function Get-EnvPathFromRegistry {
-    Return (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
+    if ($IsWindows) {
+        Return (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
+    }
 }
 
 Write-Verbose -Message 'Declaring [Global] Function Test-EnvPath'
@@ -241,8 +243,9 @@ Function Test-EnvPath {
   } else {
     $VarPath = Get-EnvPath
   }
+  if ($IsWindows) {$Private:SplitChar = ';' } else { $Private:SplitChar = ':' }
   # Split Path into a unique member array for processing
-  $PathArray = $VarPath.Split(';') | Sort-Object -Unique
+  $PathArray = $VarPath.Split($Private:SplitChar) | Sort-Object -Unique
   if ($PathArray -like $Folder) {
     Write-Verbose -Message ($PathArray -like $Folder)
     $Result = $True
@@ -266,16 +269,23 @@ Function Remove-EnvPath {
     [String[]]$RemovedFolder
   )
 
-  If (-not (Test-LocalAdmin)) {
-    Write-Warning -Message 'Required Administrator permissions not available.'
-    Return $False
+  if ($IsWindows) {
+
+    # In Windows, semicolon is used to separate entries in the PATH variable
+    $Private:SplitChar = ';'
+    If (-not (Test-LocalAdmin)) {
+        Write-Warning -Message 'Required Administrator permissions not available.'
+        Return $False
+    }
+
+    # Get the Current Search Path from the Environment keys in the Registry
+    $OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
+  } else {
+    $Private:SplitChar = ':'
+    $OldPath = $Env:PATH
   }
-
-  # Get the Current Search Path from the Environment keys in the Registry
-  $OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).Path
-
   # Verify item exists as an EXACT match before removing
-  If ($Oldpath.split(';') -contains $RemovedFolder) {
+  If ($Oldpath.split($Private:SplitChar) -contains $RemovedFolder) {
     # Find the value to remove, replace it with $NULL.  If it's not found, nothing will change
     $NewPath = $OldPath.replace($RemovedFolder,$NULL)
   }
